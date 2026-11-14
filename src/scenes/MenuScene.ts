@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H, GROUND_Y, RUN } from '../config';
-import { ATLAS } from '../art/placeholder';
+import { ensureLoaded, scaleOf } from '../assets';
 import { guestLoadout } from '../loadout';
 import { loadScores } from '../systems/highscores';
 import { button, slotRow, text } from '../ui';
@@ -11,15 +11,16 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     const lo = guestLoadout();
     this.add.rectangle(0, 0, GAME_W, GAME_H, 0x141c3a).setOrigin(0);
-    this.add.tileSprite(0, GROUND_Y - 200, GAME_W, 220, 'bg-far').setOrigin(0, 1).setScrollFactor(0).setY(GROUND_Y - 40);
-    this.add.tileSprite(0, GROUND_Y, GAME_W, GAME_H - GROUND_Y, 'ground').setOrigin(0);
+    this.add.tileSprite(0, GROUND_Y - 40, GAME_W, 220, 'bg.far').setOrigin(0, 1).setTileScale(scaleOf('bg.far'));
+    this.add.tileSprite(0, GROUND_Y - 6, GAME_W, GAME_H - GROUND_Y + 6, 'bg.ground').setOrigin(0).setTileScale(scaleOf('bg.ground'));
 
     text(this, GAME_W / 2, 56, 'ALTERED RUN', 56, '#ffffff', '900').setOrigin(0.5);
     text(this, GAME_W / 2, 104, 'Your NFTs become AWIs (Altered World Items)', 18, '#8fa3ff', '600').setOrigin(0.5);
 
-    const hero = this.add.sprite(150, GROUND_Y, ATLAS, `${lo.skin.id}/idle`).setOrigin(0.5, 1).setScale(1.4);
-    hero.play(`${lo.skin.id}-run`);
-    this.add.sprite(70, GROUND_Y - 6, ATLAS, `pet/${lo.pet.id}0`).setOrigin(0.5, 1).play(`${lo.pet.id}-move`);
+    const heroKey = `hero.${lo.skin.id}.run`;
+    this.add.sprite(150, GROUND_Y, heroKey).setOrigin(0.5, 1).setScale(scaleOf(heroKey) * 1.4).play(heroKey);
+    const petKey = `pet.${lo.pet.id}`;
+    this.add.sprite(70, GROUND_Y + 2, petKey).setOrigin(0.5, 1).setScale(scaleOf(petKey)).play(petKey);
 
     text(this, 320, 160, 'GUEST LOADOUT', 14, '#8fa3ff').setOrigin(0, 0.5);
     slotRow(this, 320, 190, lo, 72, 14);
@@ -39,7 +40,8 @@ export class MenuScene extends Phaser.Scene {
       const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
       o?.lock?.('landscape').catch(() => {});
     }
-    this.scene.start('Run', { loadout: guestLoadout() });
+    const lo = guestLoadout();
+    ensureLoaded(this, lo, () => this.scene.start('Run', { loadout: lo }));
   }
 
   private showScores(): void {

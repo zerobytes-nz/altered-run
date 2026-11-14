@@ -1,0 +1,756 @@
+{
+  "about": "Single source of truth for every art/sound file. The game loads public/<roots.licensed>/<path> when it exists (and has the right size), otherwise public/<roots.placeholder>/<path>. Edit this file, then run `npm run assets:placeholders && npm run assets:docs`.",
+  "version": 1,
+  "roots": {
+    "licensed": "assets/licensed",
+    "placeholder": "assets/placeholder"
+  },
+  "sources": {
+    "gameart2d-knight": {
+      "name": "gameart2d — The Knight (free sprites)",
+      "url": "https://www.gameart2d.com/freebies.html",
+      "licence": "Free download. Check the licence on the pack page before use. Treat it as NOT redistributable: keep the files in public/assets/licensed/ (gitignored)."
+    },
+    "gameart2d-ninja": {
+      "name": "gameart2d — Ninja (free sprites)",
+      "url": "https://www.gameart2d.com/freebies.html",
+      "licence": "Free download. Check the licence on the pack page before use. Treat it as NOT redistributable: keep the files in public/assets/licensed/ (gitignored)."
+    },
+    "gameart2d-robot": {
+      "name": "gameart2d — The Robot (free sprites)",
+      "url": "https://www.gameart2d.com/freebies.html",
+      "licence": "Free download. Check the licence on the pack page before use. Treat it as NOT redistributable: keep the files in public/assets/licensed/ (gitignored)."
+    },
+    "gameart2d-tileset": {
+      "name": "gameart2d — Free Platformer Game Tileset",
+      "url": "https://www.gameart2d.com/freebies.html",
+      "licence": "Free download. Check the licence on the pack page before use. Treat it as NOT redistributable: keep the files in public/assets/licensed/ (gitignored)."
+    },
+    "craftpix-weapons": {
+      "name": "craftpix.net — free weapon icon pack (any; e.g. RPG/fantasy weapon icons)",
+      "url": "https://craftpix.net/freebies/",
+      "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored)."
+    },
+    "craftpix-pets": {
+      "name": "craftpix.net — free cat / dog pet sprites, free drone/robot sprites",
+      "url": "https://craftpix.net/freebies/",
+      "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored)."
+    },
+    "craftpix-objects": {
+      "name": "craftpix.net — free platformer objects / traps / coins pack",
+      "url": "https://craftpix.net/freebies/",
+      "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored)."
+    },
+    "craftpix-enemies": {
+      "name": "craftpix.net — free slime / monster sprite pack",
+      "url": "https://craftpix.net/freebies/",
+      "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored)."
+    },
+    "craftpix-gui": {
+      "name": "craftpix.net — free game GUI / icon pack",
+      "url": "https://craftpix.net/freebies/",
+      "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored)."
+    },
+    "own": {
+      "name": "Altered Run original (placeholder generator)",
+      "url": "scripts/placeholder-art.mjs",
+      "licence": "MIT, same as the code. Fine to commit."
+    }
+  },
+  "assets": [
+    {
+      "key": "hero.knight.idle",
+      "type": "spritesheet",
+      "path": "heroes/knight/idle.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: knight, idle loop (menu, loadout icon)",
+      "source": "gameart2d-knight",
+      "animation": {
+        "frameRate": 12,
+        "repeat": -1
+      },
+      "sourceFiles": "Idle (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.knight.run",
+      "type": "spritesheet",
+      "path": "heroes/knight/run.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: knight, run cycle",
+      "source": "gameart2d-knight",
+      "animation": {
+        "frameRate": 18,
+        "repeat": -1
+      },
+      "sourceFiles": "Run (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.knight.jump",
+      "type": "spritesheet",
+      "path": "heroes/knight/jump.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: knight, jump arc: frames 0–4 rising, 5–9 falling (frame picked from vertical speed)",
+      "source": "gameart2d-knight",
+      "animation": {
+        "frameRate": 0,
+        "repeat": 0
+      },
+      "sourceFiles": "Jump (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.knight.slide",
+      "type": "spritesheet",
+      "path": "heroes/knight/slide.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: knight, slide (low pose, loops while sliding)",
+      "source": "gameart2d-knight",
+      "animation": {
+        "frameRate": 20,
+        "repeat": -1
+      },
+      "sourceFiles": "Not in the free pack: keep the placeholder or supply any 10-frame slide.",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.knight.attack",
+      "type": "spritesheet",
+      "path": "heroes/knight/attack.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: knight, melee attack (plays once, stretched to the attack time)",
+      "source": "gameart2d-knight",
+      "animation": {
+        "frameRate": 40,
+        "repeat": 0
+      },
+      "sourceFiles": "Attack (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.knight.dead",
+      "type": "spritesheet",
+      "path": "heroes/knight/dead.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: knight, death (plays once, holds last frame)",
+      "source": "gameart2d-knight",
+      "animation": {
+        "frameRate": 15,
+        "repeat": 0
+      },
+      "sourceFiles": "Dead (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.ninja.idle",
+      "type": "spritesheet",
+      "path": "heroes/ninja/idle.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: ninja, idle loop (menu, loadout icon)",
+      "source": "gameart2d-ninja",
+      "animation": {
+        "frameRate": 12,
+        "repeat": -1
+      },
+      "sourceFiles": "Idle__000-009.png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.ninja.run",
+      "type": "spritesheet",
+      "path": "heroes/ninja/run.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: ninja, run cycle",
+      "source": "gameart2d-ninja",
+      "animation": {
+        "frameRate": 18,
+        "repeat": -1
+      },
+      "sourceFiles": "Run__000-009.png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.ninja.jump",
+      "type": "spritesheet",
+      "path": "heroes/ninja/jump.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: ninja, jump arc: frames 0–4 rising, 5–9 falling (frame picked from vertical speed)",
+      "source": "gameart2d-ninja",
+      "animation": {
+        "frameRate": 0,
+        "repeat": 0
+      },
+      "sourceFiles": "Jump__000-009.png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.ninja.slide",
+      "type": "spritesheet",
+      "path": "heroes/ninja/slide.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: ninja, slide (low pose, loops while sliding)",
+      "source": "gameart2d-ninja",
+      "animation": {
+        "frameRate": 20,
+        "repeat": -1
+      },
+      "sourceFiles": "Slide__000-009.png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.ninja.attack",
+      "type": "spritesheet",
+      "path": "heroes/ninja/attack.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: ninja, melee attack (plays once, stretched to the attack time)",
+      "source": "gameart2d-ninja",
+      "animation": {
+        "frameRate": 40,
+        "repeat": 0
+      },
+      "sourceFiles": "Attack__000-009.png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.ninja.dead",
+      "type": "spritesheet",
+      "path": "heroes/ninja/dead.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: ninja, death (plays once, holds last frame)",
+      "source": "gameart2d-ninja",
+      "animation": {
+        "frameRate": 15,
+        "repeat": 0
+      },
+      "sourceFiles": "Dead__000-009.png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.robot.idle",
+      "type": "spritesheet",
+      "path": "heroes/robot/idle.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: robot, idle loop (menu, loadout icon)",
+      "source": "gameart2d-robot",
+      "animation": {
+        "frameRate": 12,
+        "repeat": -1
+      },
+      "sourceFiles": "Idle (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.robot.run",
+      "type": "spritesheet",
+      "path": "heroes/robot/run.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: robot, run cycle",
+      "source": "gameart2d-robot",
+      "animation": {
+        "frameRate": 18,
+        "repeat": -1
+      },
+      "sourceFiles": "Run (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.robot.jump",
+      "type": "spritesheet",
+      "path": "heroes/robot/jump.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: robot, jump arc: frames 0–4 rising, 5–9 falling (frame picked from vertical speed)",
+      "source": "gameart2d-robot",
+      "animation": {
+        "frameRate": 0,
+        "repeat": 0
+      },
+      "sourceFiles": "Jump (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.robot.slide",
+      "type": "spritesheet",
+      "path": "heroes/robot/slide.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: robot, slide (low pose, loops while sliding)",
+      "source": "gameart2d-robot",
+      "animation": {
+        "frameRate": 20,
+        "repeat": -1
+      },
+      "sourceFiles": "Slide (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.robot.attack",
+      "type": "spritesheet",
+      "path": "heroes/robot/attack.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: robot, melee attack (plays once, stretched to the attack time)",
+      "source": "gameart2d-robot",
+      "animation": {
+        "frameRate": 40,
+        "repeat": 0
+      },
+      "sourceFiles": "Melee (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "hero.robot.dead",
+      "type": "spritesheet",
+      "path": "heroes/robot/dead.png",
+      "width": 1280,
+      "height": 192,
+      "frameWidth": 128,
+      "frameHeight": 192,
+      "frameCount": 10,
+      "displayScale": 0.5,
+      "usedFor": "hero skin: robot, death (plays once, holds last frame)",
+      "source": "gameart2d-robot",
+      "animation": {
+        "frameRate": 15,
+        "repeat": 0
+      },
+      "sourceFiles": "Dead (1-10).png",
+      "notes": "Feet at the bottom-centre of every frame, facing right."
+    },
+    {
+      "key": "weapon.sword",
+      "type": "image",
+      "path": "weapons/sword.png",
+      "width": 128,
+      "height": 32,
+      "frameWidth": 128,
+      "frameHeight": 32,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "weapon AWI: sword (held in hand, swings on attack). Handle on the left, blade pointing right.",
+      "source": "craftpix-weapons"
+    },
+    {
+      "key": "weapon.kunai",
+      "type": "image",
+      "path": "weapons/kunai.png",
+      "width": 96,
+      "height": 32,
+      "frameWidth": 96,
+      "frameHeight": 32,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "weapon AWI: kunai. Handle on the left, tip pointing right.",
+      "source": "craftpix-weapons",
+      "sourceFiles": "Or Kunai.png from the gameart2d Ninja pack."
+    },
+    {
+      "key": "weapon.hammer",
+      "type": "image",
+      "path": "weapons/hammer.png",
+      "width": 112,
+      "height": 64,
+      "frameWidth": 112,
+      "frameHeight": 64,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "weapon AWI: hammer. Handle on the left, head on the right.",
+      "source": "craftpix-weapons"
+    },
+    {
+      "key": "pet.cat",
+      "type": "spritesheet",
+      "path": "pets/cat.png",
+      "width": 384,
+      "height": 72,
+      "frameWidth": 96,
+      "frameHeight": 72,
+      "frameCount": 4,
+      "displayScale": 0.5,
+      "usedFor": "pet AWI: cat, 4-frame move loop (follows the hero, collects coins). Facing right.",
+      "source": "craftpix-pets",
+      "animation": {
+        "frameRate": 8,
+        "repeat": -1
+      }
+    },
+    {
+      "key": "pet.dog",
+      "type": "spritesheet",
+      "path": "pets/dog.png",
+      "width": 384,
+      "height": 72,
+      "frameWidth": 96,
+      "frameHeight": 72,
+      "frameCount": 4,
+      "displayScale": 0.5,
+      "usedFor": "pet AWI: dog, 4-frame move loop (follows the hero, collects coins). Facing right.",
+      "source": "craftpix-pets",
+      "animation": {
+        "frameRate": 8,
+        "repeat": -1
+      }
+    },
+    {
+      "key": "pet.drone",
+      "type": "spritesheet",
+      "path": "pets/drone.png",
+      "width": 384,
+      "height": 72,
+      "frameWidth": 96,
+      "frameHeight": 72,
+      "frameCount": 4,
+      "displayScale": 0.5,
+      "usedFor": "pet AWI: flying drone, 4-frame move loop (follows the hero, collects coins). Facing right.",
+      "source": "craftpix-pets",
+      "animation": {
+        "frameRate": 8,
+        "repeat": -1
+      }
+    },
+    {
+      "key": "trinket.doubleJump",
+      "type": "image",
+      "path": "trinkets/doubleJump.png",
+      "width": 64,
+      "height": 64,
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "trinket AWI icon: Feather (double jump)",
+      "source": "craftpix-gui"
+    },
+    {
+      "key": "trinket.magnet",
+      "type": "image",
+      "path": "trinkets/magnet.png",
+      "width": 64,
+      "height": 64,
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "trinket AWI icon: Magnet (pulls coins)",
+      "source": "craftpix-gui"
+    },
+    {
+      "key": "trinket.shield",
+      "type": "image",
+      "path": "trinkets/shield.png",
+      "width": 64,
+      "height": 64,
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "trinket AWI icon: Shield (blocks one hit)",
+      "source": "craftpix-gui"
+    },
+    {
+      "key": "trinket.speed",
+      "type": "image",
+      "path": "trinkets/speed.png",
+      "width": 64,
+      "height": 64,
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "trinket AWI icon: Boots (+speed, +score)",
+      "source": "craftpix-gui"
+    },
+    {
+      "key": "obj.spike",
+      "type": "image",
+      "path": "world/spike.png",
+      "width": 104,
+      "height": 80,
+      "frameWidth": 104,
+      "frameHeight": 80,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "obstacle: ground spikes (jump over)",
+      "source": "craftpix-objects",
+      "notes": "Spikes touch the bottom edge."
+    },
+    {
+      "key": "obj.crate",
+      "type": "image",
+      "path": "world/crate.png",
+      "width": 112,
+      "height": 112,
+      "frameWidth": 112,
+      "frameHeight": 112,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "obstacle: crate (jump over, stand on, or smash)",
+      "source": "gameart2d-tileset",
+      "sourceFiles": "Crate.png"
+    },
+    {
+      "key": "obj.bar",
+      "type": "image",
+      "path": "world/bar.png",
+      "width": 144,
+      "height": 720,
+      "frameWidth": 144,
+      "frameHeight": 720,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "obstacle: hanging sign/beam (slide under). The bottom 104 px is the sign; the rest is the pole/chain going up off-screen.",
+      "source": "craftpix-objects"
+    },
+    {
+      "key": "enemy.slime",
+      "type": "spritesheet",
+      "path": "world/slime.png",
+      "width": 448,
+      "height": 88,
+      "frameWidth": 112,
+      "frameHeight": 88,
+      "frameCount": 4,
+      "displayScale": 0.5,
+      "usedFor": "enemy: slime, 4-frame wobble (smash or stomp). Facing left.",
+      "source": "craftpix-enemies",
+      "animation": {
+        "frameRate": 6,
+        "repeat": -1
+      }
+    },
+    {
+      "key": "obj.coin",
+      "type": "spritesheet",
+      "path": "world/coin.png",
+      "width": 336,
+      "height": 56,
+      "frameWidth": 56,
+      "frameHeight": 56,
+      "frameCount": 6,
+      "displayScale": 0.5,
+      "usedFor": "pickup: coin, 6-frame spin",
+      "source": "craftpix-objects",
+      "animation": {
+        "frameRate": 12,
+        "repeat": -1
+      }
+    },
+    {
+      "key": "obj.flag",
+      "type": "image",
+      "path": "world/flag.png",
+      "width": 120,
+      "height": 320,
+      "frameWidth": 120,
+      "frameHeight": 320,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "finish-line flag (also a small HUD icon)",
+      "source": "craftpix-objects"
+    },
+    {
+      "key": "bg.far",
+      "type": "image",
+      "path": "backgrounds/far.png",
+      "width": 1024,
+      "height": 440,
+      "frameWidth": 1024,
+      "frameHeight": 440,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "background: far mountains layer. Must tile horizontally; transparent sky.",
+      "source": "gameart2d-tileset",
+      "tile": true
+    },
+    {
+      "key": "bg.near",
+      "type": "image",
+      "path": "backgrounds/near.png",
+      "width": 1024,
+      "height": 320,
+      "frameWidth": 1024,
+      "frameHeight": 320,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "background: near hills layer. Must tile horizontally; transparent top.",
+      "source": "gameart2d-tileset",
+      "tile": true
+    },
+    {
+      "key": "bg.ground",
+      "type": "image",
+      "path": "backgrounds/ground.png",
+      "width": 256,
+      "height": 160,
+      "frameWidth": 256,
+      "frameHeight": 160,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "ground strip the hero runs on. Must tile horizontally; walkable surface at the top edge.",
+      "source": "gameart2d-tileset",
+      "tile": true,
+      "sourceFiles": "Tiles 2.png (top) + 5.png (fill), combined"
+    },
+    {
+      "key": "ui.heart",
+      "type": "image",
+      "path": "ui/heart.png",
+      "width": 56,
+      "height": 52,
+      "frameWidth": 56,
+      "frameHeight": 52,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "HUD: full heart (life)",
+      "source": "craftpix-gui"
+    },
+    {
+      "key": "ui.heartEmpty",
+      "type": "image",
+      "path": "ui/heart-empty.png",
+      "width": 56,
+      "height": 52,
+      "frameWidth": 56,
+      "frameHeight": 52,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "HUD: empty heart (life lost)",
+      "source": "craftpix-gui"
+    },
+    {
+      "key": "ui.slot",
+      "type": "image",
+      "path": "ui/slot.png",
+      "width": 128,
+      "height": 128,
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "HUD/menu: frame behind each AWI slot icon",
+      "source": "craftpix-gui"
+    },
+    {
+      "key": "fx.slash",
+      "type": "image",
+      "path": "fx/slash.png",
+      "width": 192,
+      "height": 192,
+      "frameWidth": 192,
+      "frameHeight": 192,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "effect: weapon slash arc (left-quarter is the hero side)",
+      "source": "own"
+    },
+    {
+      "key": "fx.dot",
+      "type": "image",
+      "path": "fx/dot.png",
+      "width": 16,
+      "height": 16,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "effect: round particle (coins, sparkles). White; tinted in game.",
+      "source": "own"
+    },
+    {
+      "key": "fx.px",
+      "type": "image",
+      "path": "fx/px.png",
+      "width": 8,
+      "height": 8,
+      "frameWidth": 8,
+      "frameHeight": 8,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "effect: square particle (debris). White; tinted in game.",
+      "source": "own"
+    }
+  ]
+}

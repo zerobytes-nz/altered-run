@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { ATLAS } from './art/placeholder';
 import type { Loadout } from './loadout';
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
@@ -22,16 +21,16 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
 /** The four AWI slots (skin, weapon, pet, trinket) shown as a row. */
 export function slotRow(scene: Phaser.Scene, x: number, y: number, lo: Loadout, size = 64, gap = 10, labels = true, labelSize = 13) {
   const entries: [string, string, string][] = [
-    ['HERO', `${lo.skin.id}/idle`, lo.skin.name],
-    ['WEAPON', `weapon/${lo.weapon.id}`, lo.weapon.name],
-    ['PET', `pet/${lo.pet.id}0`, lo.pet.name],
-    ['TRINKET', `trinket/${lo.trinket.id}`, lo.trinket.name],
+    ['HERO', `hero.${lo.skin.id}.idle`, lo.skin.name],
+    ['WEAPON', `weapon.${lo.weapon.id}`, lo.weapon.name],
+    ['PET', `pet.${lo.pet.id}`, lo.pet.name],
+    ['TRINKET', `trinket.${lo.trinket.id}`, lo.trinket.name],
   ];
   const c = scene.add.container(x, y);
   entries.forEach(([slot, frame, name], i) => {
     const cx = i * (size + gap) + size / 2;
-    const bg = scene.add.image(cx, size / 2, ATLAS, 'ui/slot').setDisplaySize(size, size);
-    const icon = scene.add.image(cx, size / 2, ATLAS, frame);
+    const bg = scene.add.image(cx, size / 2, 'ui.slot').setDisplaySize(size, size);
+    const icon = scene.add.image(cx, size / 2, frame, 0);
     const f = icon.frame;
     icon.setScale(Math.min((size * 0.78) / f.width, (size * 0.78) / f.height));
     c.add([bg, icon]);

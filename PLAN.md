@@ -28,7 +28,7 @@ Stack: **Phaser 3 + TypeScript + Vite**, static build, landscape, mobile-first.
 ### 1. Core runner on a phone (this milestone)
 - Guest mode with default AWIs (knight / sword / cat / double jump).
 - Touch controls (tap / swipe) plus a keyboard fallback (Space/Up, Right/X, Down).
-- Placeholder art generated at runtime (no downloads). The art goes through a `skins` registry so it can be swapped for real art later.
+- Placeholder art from the asset manifest, swappable file by file for licensed art (see *Art and open source*).
 - Boot → Menu (Play, high scores) → Run → Game Over (score, best, retry).
 - Performance: a small bundle, object pooling for obstacles and coins, arcade physics, no per-frame allocations, `pixelArt`/`roundPixels` off, FPS meter in debug mode (`?debug`).
 - Landscape: the canvas uses Scale.FIT at 960×540. In portrait a "rotate your phone" overlay shows.
@@ -56,20 +56,26 @@ Stack: **Phaser 3 + TypeScript + Vite**, static build, landscape, mobile-first.
 - Capacitor app build (Android/iOS).
 - Buying paid AWIs in the game.
 
-## Art (the user downloads these; licences forbid redistributing the raw assets)
-The raw packs go in `public/assets/vendor/`, which is **git-ignored**. Keep this repo private either way.
-- **Heroes (skins):** gameart2d.com free sprites: "The Knight", "Ninja Adventure"/"Free Ninja", "The Robot", "Cute Girl", "Adventure Boy", "Zombie". They share idle/run/jump/slide/attack/dead animations.
-- **Tiles / background:** gameart2d "Free Platformer Game Tileset" (and its Winter / Desert / Graveyard variants for biomes).
-- **Enemies / pets / weapons:** craftpix.net free packs, e.g. "Free Pixel Art Enemies", "Free Pet Sprites" / "Cat & Dog" packs, "Free Weapon Icons". For coins, crates, and spikes: "Free Platformer Game Objects".
-- Pack sprites into one texture atlas per skin (TexturePacker or `free-tex-packer`) to keep draw calls and load time low.
+## Art and open source
+The repo is **open source**, but the craftpix/gameart2d packs may not be redistributed. So:
+- `assets.manifest.json` is the single source of truth. It records every asset's key, path, pixel size, frames, animation, use and source pack.
+- `public/assets/placeholder/` is committed. It holds original art generated from the manifest, with the same sizes and frame counts.
+- `public/assets/licensed/` is gitignored. It holds the user's copies of the real art, which override placeholders file by file.
+- `npm run check-assets` runs in the pre-commit hook and CI. It blocks licensed files, unlisted media and secrets from git.
+- [ASSETS.md](ASSETS.md) is generated. It lists every file to supply and the pack to get it from.
+
+Suggested packs: the gameart2d freebies "The Knight", "Ninja" and "The Robot" (they share idle/run/jump/slide/attack/dead animations) and the "Free Platformer Game Tileset". From craftpix.net freebies: weapon icons, pets, slimes, objects and the GUI.
 
 ## Repo layout
 ```
+assets.manifest.json   every art/sound file (single source of truth)
+public/assets/placeholder/  committed original art   public/assets/licensed/  gitignored real art
+scripts/               check-assets, assets-status, assets-docs, gen-placeholders, pack-frames
 src/
-  main.ts            Phaser config
-  config.ts          tunables (speeds, run length, scoring)
-  loadout.ts         AWI slot model + defaults (milestone 2 fills from the API)
-  scenes/            Boot, Menu, Run, GameOver
-  systems/           input (tap/swipe), spawner, highscores
-  art/placeholder.ts runtime-generated textures
+  main.ts              Phaser config
+  assets.ts            manifest-driven preload (licensed → placeholder fallback via vite plugin)
+  config.ts            tunables (speeds, run length, scoring)
+  loadout.ts           AWI slot model + defaults (milestone 2 fills from the API)
+  scenes/              Boot, Menu, Run, GameOver
+  systems/             input (tap/swipe), highscores
 ```

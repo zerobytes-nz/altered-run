@@ -1,41 +1,21 @@
 import Phaser from 'phaser';
-import { ATLAS, buildPlaceholderAtlas } from '../art/placeholder';
-import { SKINS, PETS } from '../loadout';
+import { GAME_W, GAME_H } from '../config';
+import { preloadFor } from '../assets';
+import { guestLoadout } from '../loadout';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
 
-  create(): void {
-    buildPlaceholderAtlas(this);
-    for (const skin of Object.keys(SKINS)) {
-      this.anims.create({
-        key: `${skin}-run`,
-        frames: [0, 1, 2, 3].map((i) => ({ key: ATLAS, frame: `${skin}/run${i}` })),
-        frameRate: 12,
-        repeat: -1,
-      });
-    }
-    for (const pet of Object.keys(PETS)) {
-      this.anims.create({
-        key: `${pet}-move`,
-        frames: [0, 1].map((i) => ({ key: ATLAS, frame: `pet/${pet}${i}` })),
-        frameRate: 7,
-        repeat: -1,
-      });
-    }
-    this.anims.create({
-      key: 'coin-spin',
-      frames: [0, 1, 2, 3].map((i) => ({ key: ATLAS, frame: `obj/coin${i}` })),
-      frameRate: 10,
-      repeat: -1,
-    });
-    this.anims.create({
-      key: 'slime-wobble',
-      frames: [0, 1].map((i) => ({ key: ATLAS, frame: `obj/slime${i}` })),
-      frameRate: 5,
-      repeat: -1,
-    });
+  preload(): void {
+    const w = 320, x = (GAME_W - w) / 2, y = GAME_H / 2;
+    this.add.rectangle(x, y, w, 12, 0x1b2550).setOrigin(0, 0.5);
+    const bar = this.add.rectangle(x, y, 1, 12, 0x8fa3ff).setOrigin(0, 0.5);
+    this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => { bar.width = Math.max(1, w * p); });
     document.getElementById('loading')?.remove();
+    preloadFor(this, guestLoadout());
+  }
+
+  create(): void {
     this.scene.start('Menu');
   }
 }

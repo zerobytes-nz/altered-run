@@ -1,5 +1,20 @@
 node_modules
 dist
 .DS_Store
-# Licensed art packs (craftpix / gameart2d) must not be redistributed
-public/assets/vendor/
+
+# ── Licensed third-party art (craftpix.net / gameart2d.com) ─────────────────
+# Their licences forbid redistributing the files. Only the README is tracked.
+# `npm run check-assets` (pre-commit + CI) also fails if anything here is staged.
+public/assets/licensed/*
+!public/assets/licensed/README.md
+
+# Raw downloads / source packs, wherever they are dropped
+*.zip
+*.rar
+/art-src/
+/vendor-art/
+
+# ── Secrets ─────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H, GROUND_Y, HERO_X, RUN, SCORE, DEBUG } from '../config';
-import { ATLAS } from '../art/placeholder';
+import { asset, scaleOf } from '../assets';
 import { guestLoadout, type Loadout } from '../loadout';
 import { GestureInput, type Gesture } from '../systems/input';
 import { bestScore } from '../systems/highscores';
@@ -27,7 +27,8 @@ const HITBOX: Record<Kind, [number, number, number, number]> = {
   slime: [-22, -36, 44, 36],
   flag: [0, 0, 0, 0],
 };
-const FRAME: Record<Kind, string> = { spike: 'obj/spike', crate: 'obj/crate', bar: 'obj/bar', slime: 'obj/slime0', flag: 'obj/flag' };
+/** Manifest key for each obstacle kind. */
+const TEX: Record<Kind, string> = { spike: 'obj.spike', crate: 'obj.crate', bar: 'obj.bar', slime: 'enemy.slime', flag: 'obj.flag' };
 
 const HERO_HALF_W = 15;
 const HERO_STAND_H = 82;
@@ -67,6 +68,7 @@ export class RunScene extends Phaser.Scene {
   private attackReadyAt = 0;
   private invulnUntil = 0;
   private visual = '';
+  private jumpFrames = 1;
   private dead = false;
   private ended = false;
 
@@ -116,25 +118,29 @@ export class RunScene extends Phaser.Scene {
     sky.fillGradientStyle(0x141c3a, 0x141c3a, 0x3a4a8a, 0x3a4a8a, 1);
     sky.fillRect(0, 0, GAME_W, GROUND_Y);
     this.add.circle(560, 130, 38, 0xfff1c1, 0.85);
-    this.bgFar = this.add.tileSprite(0, GROUND_Y - 30, GAME_W, 220, 'bg-far').setOrigin(0, 1);
-    this.bgNear = this.add.tileSprite(0, GROUND_Y + 4, GAME_W, 160, 'bg-near').setOrigin(0, 1);
-    this.ground = this.add.tileSprite(0, GROUND_Y - 6, GAME_W, GAME_H - GROUND_Y + 6, 'ground').setOrigin(0);
+    this.bgFar = this.add.tileSprite(0, GROUND_Y - 30, GAME_W, 220, 'bg.far').setOrigin(0, 1).setTileScale(scaleOf('bg.far'));
+    this.bgNear = this.add.tileSprite(0, GROUND_Y + 4, GAME_W, 160, 'bg.near').setOrigin(0, 1).setTileScale(scaleOf('bg.near'));
+    this.ground = this.add.tileSprite(0, GROUND_Y - 6, GAME_W, GAME_H - GROUND_Y + 6, 'bg.ground').setOrigin(0).setTileScale(scaleOf('bg.ground'));
 
     // Hero, weapon, pet
     const skin = this.lo.skin.id;
-    this.pet = this.add.sprite(HERO_X - 70, GROUND_Y - 110, ATLAS, `pet/${this.lo.pet.id}0`).play(`${this.lo.pet.id}-move`);
+    this.jumpFrames = asset(`hero.${skin}.jump`).frameCount;
+    const petKey = `pet.${this.lo.pet.id}`;
+    this.pet = this.add.sprite(HERO_X - 70, GROUND_Y - 110, petKey).setScale(scaleOf(petKey)).play(petKey);
     this.petX = this.pet.x; this.petY = this.pet.y;
-    this.hero = this.add.sprite(HERO_X, GROUND_Y, ATLAS, `${skin}/idle`).setOrigin(0.5, 1).setDepth(5);
-    this.weapon = this.add.image(HERO_X, GROUND_Y - 50, ATLAS, `weapon/${this.lo.weapon.id}`).setOrigin(0.12, 0.5).setDepth(6);
-    this.slash = this.add.image(0, 0, ATLAS, 'fx/slash').setOrigin(0.25, 0.5).setDepth(6).setVisible(false);
+    this.hero = this.add.sprite(HERO_X, GROUND_Y, `hero.${skin}.run`).setOrigin(0.5, 1).setDepth(5).setScale(scaleOf(`hero.${skin}.run`));
+    const wKey = `weapon.${this.lo.weapon.id}`;
+    this.weapon = this.add.image(HERO_X, GROUND_Y - 50, wKey).setOrigin(0.12, 0.5).setDepth(6).setScale(scaleOf(wKey));
+    this.slash = this.add.image(0, 0, 'fx.slash').setOrigin(0.25, 0.5).setDepth(6).setVisible(false);
     this.shieldRing = this.add.circle(HERO_X, GROUND_Y - 44, 56).setStrokeStyle(4, 0x4cc9f0, 0.8).setDepth(6).setVisible(this.shield > 0);
 
-    this.coinFx = this.add.particles(0, 0, ATLAS, {
-      frame: 'fx/dot', lifespan: 380, speed: { min: 60, max: 200 }, scale: { start: 1.1, end: 0 },
+    const dotS = scaleOf('fx.dot'), pxS = scaleOf('fx.px');
+    this.coinFx = this.add.particles(0, 0, 'fx.dot', {
+      lifespan: 380, speed: { min: 60, max: 200 }, scale: { start: 1.1 * dotS, end: 0 },
       tint: 0xffd34d, emitting: false,
     }).setDepth(7);
-    this.hitFx = this.add.particles(0, 0, ATLAS, {
-      frame: 'fx/px', lifespan: 520, speed: { min: 120, max: 360 }, gravityY: 900, scale: { start: 2, end: 0.5 },
+    this.hitFx = this.add.particles(0, 0, 'fx.px', {
+      lifespan: 520, speed: { min: 120, max: 360 }, gravityY: 900, scale: { start: 2 * pxS, end: 0.5 * pxS },
       tint: [0xffffff, 0xb07a43, 0x80b918], emitting: false,
     }).setDepth(7);
 
@@ -153,7 +159,7 @@ export class RunScene extends Phaser.Scene {
   private buildHud(): void {
     const hud = this.add.container(0, 0).setDepth(20);
     for (let i = 0; i < RUN.hearts; i++) {
-      const h = this.add.image(26 + i * 32, 26, ATLAS, 'ui/heart');
+      const h = this.add.image(26 + i * 32, 26, 'ui.heart').setScale(scaleOf('ui.heart'));
       this.heartImgs.push(h); hud.add(h);
     }
     this.scoreText = text(this, 14, 46, '0', 30, '#ffffff', '900').setStroke('#0b1020', 5);
@@ -164,7 +170,7 @@ export class RunScene extends Phaser.Scene {
     const pw = 220, px = GAME_W / 2 - pw / 2;
     const track = this.add.rectangle(px, 20, pw, 10, 0x0b1020, 0.6).setOrigin(0, 0.5).setStrokeStyle(2, 0xffffff, 0.35);
     this.progressFill = this.add.rectangle(px, 20, 1, 10, 0x80ffdb).setOrigin(0, 0.5);
-    const flag = this.add.image(px + pw + 12, 20, ATLAS, 'obj/flag').setScale(0.18);
+    const flag = this.add.image(px + pw + 12, 20, 'obj.flag').setScale(scaleOf('obj.flag') * 0.18);
     hud.add([this.scoreText, this.coinText, bestT, track, this.progressFill, flag]);
     // The four AWI slots, always on screen.
     const slots = slotRow(this, GAME_W - (4 * 52 + 3 * 14) - 12, 22, this.lo, 52, 14, true, 12);
@@ -193,22 +199,22 @@ export class RunScene extends Phaser.Scene {
   private getOb(kind: Kind): Ob {
     let o = this.obs.find((x) => !x.img.active);
     if (!o) {
-      o = { img: this.add.sprite(0, 0, ATLAS, FRAME[kind]).setOrigin(0.5, 1).setDepth(4), kind, alive: true, hx: 0, hy: 0, hw: 0, hh: 0, vx: 0 };
+      o = { img: this.add.sprite(0, 0, TEX[kind]).setOrigin(0.5, 1).setDepth(4), kind, alive: true, hx: 0, hy: 0, hw: 0, hh: 0, vx: 0 };
       this.obs.push(o);
     }
     this.tweens.killTweensOf(o.img);
     const [hx, hy, hw, hh] = HITBOX[kind];
     o.kind = kind; o.alive = true; o.hx = hx; o.hy = hy; o.hw = hw; o.hh = hh; o.vx = 0;
-    o.img.setActive(true).setVisible(true).setAlpha(1).setAngle(0).setScale(1).setFrame(FRAME[kind]);
     o.img.anims.stop();
-    if (kind === 'slime') { o.img.play('slime-wobble'); o.vx = -70; }
+    o.img.setActive(true).setVisible(true).setAlpha(1).setAngle(0).setTexture(TEX[kind], 0).setScale(scaleOf(TEX[kind]));
+    if (kind === 'slime') { o.img.play(TEX.slime); o.vx = -70; }
     return o;
   }
 
   private getCoin(x: number, y: number): Coin {
     let c = this.coins.find((k) => !k.img.active);
     if (!c) {
-      c = { img: this.add.sprite(0, 0, ATLAS, 'obj/coin0').setDepth(3).play('coin-spin'), alive: true, pulled: false };
+      c = { img: this.add.sprite(0, 0, 'obj.coin').setDepth(3).setScale(scaleOf('obj.coin')).play('obj.coin'), alive: true, pulled: false };
       this.coins.push(c);
     }
     c.alive = true; c.pulled = false;
@@ -306,7 +312,7 @@ export class RunScene extends Phaser.Scene {
       return;
     }
     this.hearts--;
-    this.heartImgs[this.hearts]?.setFrame('ui/heartEmpty');
+    this.heartImgs[this.hearts]?.setTexture('ui.heartEmpty');
     this.invulnUntil = this.now + RUN.hurtInvulnMs;
     this.cameras.main.shake(140, 0.008);
     this.cameras.main.flash(90, 255, 60, 80);
@@ -358,10 +364,10 @@ export class RunScene extends Phaser.Scene {
     }
     const dx = this.speed * dt;
     this.distance += dx;
-    this.bgFar.tilePositionX += dx * 0.12;
-    this.bgNear.tilePositionX += dx * 0.35;
-    this.ground.tilePositionX += dx;
-    this.hero.anims.timeScale = this.speed / RUN.speedStart;
+    // tilePosition is in texture pixels; divide by tileScale to move in game pixels.
+    this.bgFar.tilePositionX += (dx * 0.12) / this.bgFar.tileScaleX;
+    this.bgNear.tilePositionX += (dx * 0.35) / this.bgNear.tileScaleX;
+    this.ground.tilePositionX += dx / this.ground.tileScaleX;
 
     // Spawning / finish line
     if (!this.finishing && !this.dead) {
@@ -406,13 +412,23 @@ export class RunScene extends Phaser.Scene {
     let v: string;
     if (this.dead) v = 'dead';
     else if (sliding) v = 'slide';
-    else if (attacking) v = now < this.attackUntil - RUN.attackMs / 2 ? 'attack0' : 'attack1';
-    else if (!this.onGround) v = this.vy < 0 ? 'jump' : 'fall';
+    else if (attacking) v = 'attack';
+    else if (!this.onGround) v = 'jump';
     else v = 'run';
+    const base = `hero.${this.lo.skin.id}.`;
     if (v !== this.visual) {
       this.visual = v;
-      if (v === 'run') h.play(`${this.lo.skin.id}-run`);
-      else { h.anims.stop(); h.setFrame(`${this.lo.skin.id}/${v}`); }
+      if (v === 'jump') { h.anims.stop(); h.setTexture(base + 'jump', 0); }
+      else if (v === 'attack') h.play({ key: base + 'attack', duration: RUN.attackMs });
+      else h.play(base + v);
+      h.anims.timeScale = 1;
+    }
+    if (v === 'run') h.anims.timeScale = this.speed / RUN.speedStart;
+    else if (v === 'jump') {
+      // Jump sheet = rising → falling; pick the frame from vertical speed.
+      const last = this.jumpFrames - 1;
+      const t = (this.vy + RUN.jumpVelocity) / (2 * RUN.jumpVelocity);
+      h.setFrame(Math.max(0, Math.min(last, Math.round(t * last))));
     }
     h.setAlpha(now < this.invulnUntil && !this.dead ? ((now / 70) | 0) % 2 ? 0.35 : 1 : 1);
 
