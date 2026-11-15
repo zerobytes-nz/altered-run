@@ -6,6 +6,7 @@ import { ELEMENT_COLOR, ELEMENT_ICON, POWER_NAME, hex, type Element } from '../a
 import { GestureInput, type Gesture } from '../systems/input';
 import { bestScore } from '../systems/highscores';
 import { sfx, startMusic, stopMusic } from '../systems/audio';
+import { ShieldBubble } from '../systems/shieldBubble';
 import { muteButton, slotRow, text } from '../ui';
 import type { RunResult } from './GameOverScene';
 
@@ -106,7 +107,7 @@ export class RunScene extends Phaser.Scene {
   private weapon!: Phaser.GameObjects.Image;
   private slash!: Phaser.GameObjects.Image;
   private pet!: Phaser.GameObjects.Sprite;
-  private shieldRing!: Phaser.GameObjects.Arc;
+  private shieldBubble!: ShieldBubble;
   private vy = 0;
   private onGround = true;
   private lastGroundAt = 0;
@@ -215,7 +216,8 @@ export class RunScene extends Phaser.Scene {
     // Real hero art (knight, ninja, robot) already holds a weapon: don't draw a second one on top.
     this.weapon.setVisible(!heroHoldsWeapon(skin));
     this.slash = this.add.image(0, 0, 'fx.slash').setOrigin(0.25, 0.5).setDepth(6).setVisible(false);
-    this.shieldRing = this.add.circle(HERO_X, GROUND_Y - 44, 56).setStrokeStyle(4, 0x4cc9f0, 0.8).setDepth(6).setVisible(this.shield > 0);
+    this.shieldBubble = new ShieldBubble(this, 6);
+    this.shieldBubble.setCharges(this.shield);
 
     const dotS = scaleOf('fx.dot'), pxS = scaleOf('fx.px');
     this.coinFx = this.add.particles(0, 0, 'fx.dot', {
@@ -619,11 +621,11 @@ export class RunScene extends Phaser.Scene {
     if (this.dead || (!fromPit && this.now < this.invulnUntil)) return;
     if (!fromPit && (this.powerActive('Fire') || this.powerActive('Shadow'))) return;
     if (!fromPit && this.shield > 0) {
-      this.shield--; this.shieldRing.setVisible(this.shield > 0);
+      this.shield--; this.shieldBubble.pop(this.shield);
       this.shieldRechargeAt = this.now + (this.lo.trinket.shieldRechargeMs ?? 15000);
       this.invulnUntil = this.now + 700;
       this.cameras.main.flash(120, 76, 201, 240);
-      this.popup(this.hero.x, this.hero.y - 100, 'BLOCKED', '#9fe8ff', 18);
+      this.popup(this.hero.x, this.hero.y - 110, 'POP! BLOCKED', '#9ff3ff', 20);
       sfx.shield(); this.hitStop(60);
       return;
     }
@@ -759,9 +761,10 @@ export class RunScene extends Phaser.Scene {
     // Shield recharge
     const maxShield = this.lo.trinket.shield ?? 0;
     if (maxShield && this.shield < maxShield && this.shieldRechargeAt && now >= this.shieldRechargeAt) {
-      this.shield++; this.shieldRing.setVisible(true);
+      this.shield++; this.shieldBubble.setCharges(this.shield);
       this.shieldRechargeAt = this.shield < maxShield ? now + (this.lo.trinket.shieldRechargeMs ?? 15000) : 0;
-      this.bump(this.shieldRing, 1.5);
+      this.shieldBubble.inflate();
+      this.popup(this.hero.x, this.hero.y - 110, 'SHIELD UP!', '#9ff3ff', 18);
       sfx.shield();
     }
     if (this.combo && now > this.comboUntil) this.combo = 0;
@@ -851,7 +854,7 @@ export class RunScene extends Phaser.Scene {
       const t = 1 - (this.attackUntil - now) / RUN.attackMs; // 0 → 1
       w.setPosition(h.x + 8, h.y - 56).setAngle(-120 + t * 160);
     } else w.setPosition(h.x - 2, h.y - 54).setAngle(-62);
-    this.shieldRing.setPosition(h.x, h.y - (sliding ? 22 : 44));
+    this.shieldBubble.update(h.x, h.y - (sliding ? 24 : 44), now);
   }
 
   /** Feet touched something solid after falling at `vy`. */
