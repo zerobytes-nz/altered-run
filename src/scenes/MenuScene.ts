@@ -4,7 +4,7 @@ import { ensureLoaded, scaleOf } from '../assets';
 import { currentLoadout, loadProfile } from '../theoswap';
 import { loadScores } from '../systems/highscores';
 import { button, muteButton, slotRow, text } from '../ui';
-import { canInstall, install, isInstalled, onInstallChange, tryCloseApp } from '../systems/install';
+import { canInstall, install, isInstalled, onInstallChange, openInChromeUrl, tryCloseApp } from '../systems/install';
 
 export class MenuScene extends Phaser.Scene {
   constructor() { super('Menu'); }
@@ -69,6 +69,13 @@ export class MenuScene extends Phaser.Scene {
           '3.  Open Altered Run from your home screen:',
           '     it plays full screen, even offline.',
         ]);
+      } else if (r === 'use-chrome') {
+        this.notice('INSTALL WITH CHROME', [
+          'This browser builds an old-style app, and Android',
+          'warns about it. Chrome installs it cleanly:',
+          '1.  Tap  "Open in Chrome"  below',
+          '2.  Tap  📲 Install app  again there',
+        ], { label: 'Open in Chrome', onTap: () => { location.href = openInChromeUrl(); } });
       } else if (r === 'unavailable') {
         this.notice('INSTALL', ['Open your browser menu  ⋮  and choose', '"Install app" or "Add to Home screen".']);
       }
@@ -82,14 +89,15 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
-  /** A simple panel; tap anywhere to close it. */
-  private notice(title: string, lines: string[]): void {
+  /** A simple panel; tap outside the button to close it. */
+  private notice(title: string, lines: string[], action?: { label: string; onTap: () => void }): void {
     const layer = this.add.container(0, 0).setDepth(20);
     const shade = this.add.rectangle(0, 0, GAME_W, GAME_H, 0x000000, 0.75).setOrigin(0).setInteractive();
-    const panel = this.add.rectangle(GAME_W / 2, GAME_H / 2, 600, 300, 0x1b2550).setStrokeStyle(3, 0x8fa3ff, 0.6);
+    const panel = this.add.rectangle(GAME_W / 2, GAME_H / 2, 620, 320, 0x1b2550).setInteractive().setStrokeStyle(3, 0x8fa3ff, 0.6);
     layer.add([shade, panel, text(this, GAME_W / 2, GAME_H / 2 - 110, title, 28).setOrigin(0.5)]);
     lines.forEach((l, i) => layer.add(text(this, GAME_W / 2 - 250, GAME_H / 2 - 60 + i * 36, l, 20, '#e8ecff', '600').setOrigin(0, 0.5)));
-    layer.add(text(this, GAME_W / 2, GAME_H / 2 + 120, 'Tap to close', 15, '#8fa3ff', '600').setOrigin(0.5));
+    if (action) layer.add(button(this, GAME_W / 2, GAME_H / 2 + 92, action.label, action.onTap, 240, 48, 0x2a9d8f));
+    layer.add(text(this, GAME_W / 2, GAME_H / 2 + 132, 'Tap outside to close', 15, '#8fa3ff', '600').setOrigin(0.5));
     shade.on('pointerup', () => layer.destroy());
   }
 
