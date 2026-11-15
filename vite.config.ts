@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
-import { resolveAssets, loadManifest, PUBLIC_DIR } from './scripts/lib/assets.mjs';
+import { resolveAssets, loadManifest, PUBLIC_DIR, MANIFEST_FILE } from './scripts/lib/assets.mjs';
 import path from 'node:path';
 
 /**
@@ -31,8 +31,11 @@ function assetUrls(): Plugin {
       server.watcher.add([dir, path.join(PUBLIC_DIR, m.roots.cc0), path.join(PUBLIC_DIR, m.roots.placeholder), 'assets.manifest.json']);
       const refresh = (file: string) => {
         if (!file.startsWith(PUBLIC_DIR + path.sep + 'assets') && !file.endsWith('assets.manifest.json')) return;
+        // Invalidate the virtual module AND the manifest JSON that src/assets.ts imports:
+        // otherwise a manifest edit (e.g. a new frame size) can be served stale until a restart.
         const mod = server.moduleGraph.getModuleById(RID);
         if (mod) server.moduleGraph.invalidateModule(mod);
+        for (const m of server.moduleGraph.getModulesByFile(MANIFEST_FILE) ?? []) server.moduleGraph.invalidateModule(m);
         server.ws.send({ type: 'full-reload' });
       };
       server.watcher.on('add', refresh);

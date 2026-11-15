@@ -152,8 +152,8 @@
         "frameRate": 20,
         "repeat": -1
       },
-      "sourceFiles": "Not in the free pack: keep the placeholder or supply any 10-frame slide.",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "sourceFiles": "Run (1-10).png, rotated",
+      "notes": "The free pack has no slide: made from the run frames with npm run assets:pack -- hero.knight.slide --rotate -70 --ref 'Run (1).png' 'Run (*).png'. Feet at the bottom-centre of every frame, facing right."
     },
     {
       "key": "hero.knight.attack",

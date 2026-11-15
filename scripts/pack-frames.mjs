@@ -5,6 +5,7 @@
 // Examples:
 //   npm run assets:pack -- hero.ninja.run ~/Downloads/ninja/png/Run__00*.png
 //   npm run assets:pack -- obj.crate ~/Downloads/tileset/png/Objects/Crate.png
+//   npm run assets:pack -- hero.knight.slide --rotate -70 ~/Downloads/knight/png/Run*.png
 //   npm run assets:pack -- hero.ninja.attack --ref ~/Downloads/ninja/png/Run__000.png ~/Downloads/ninja/png/Attack__0*.png
 //
 // Frames are sorted by the number in their file name, scaled uniformly (same scale for
@@ -24,7 +25,12 @@ const forceLicensed = args.includes('--licensed');
 // so the hero keeps the same size across animations. A sheet only shrinks below that if it would not fit.
 const refAt = args.indexOf('--ref');
 const refFile = refAt >= 0 ? args[refAt + 1] : null;
-const [key, ...files] = args.filter((x, i) => x !== '--licensed' && (refAt < 0 || (i !== refAt && i !== refAt + 1)));
+// --rotate <deg>: rotate every frame (clockwise, degrees) and trim it. Used to make a slide from run
+// frames when a pack has no slide animation, e.g. --rotate -70 leans a right-facing hero back.
+const rotAt = args.indexOf('--rotate');
+const rotate = rotAt >= 0 ? Number(args[rotAt + 1]) : 0;
+const skip = new Set([refAt, refAt + 1, rotAt, rotAt + 1].filter((i, n) => (n < 2 ? refAt : rotAt) >= 0));
+const [key, ...files] = args.filter((x, i) => x !== '--licensed' && !skip.has(i));
 const m = loadManifest();
 const a = m.assets.find((x) => x.key === key);
 if (!a || !files.length) {
@@ -40,7 +46,24 @@ const picked = Array.from({ length: a.frameCount }, (_, i) =>
   sorted[Math.min(sorted.length - 1, Math.round((i * (sorted.length - 1)) / Math.max(1, a.frameCount - 1)))]);
 if (sorted.length !== a.frameCount) console.warn(`Note: got ${sorted.length} frames, ${key} needs ${a.frameCount}; ${sorted.length > a.frameCount ? 'sampling evenly' : 'repeating frames'}.`);
 
-const imgs = await Promise.all(picked.map((f) => loadImage(fs.readFileSync(f))));
+/** Rotate an image about its centre and crop it to its visible (non-transparent) pixels. */
+function rotateTrim(img, deg) {
+  const r = (deg * Math.PI) / 180, cos = Math.abs(Math.cos(r)), sin = Math.abs(Math.sin(r));
+  const w = Math.ceil(img.width * cos + img.height * sin), h = Math.ceil(img.width * sin + img.height * cos);
+  const cv = createCanvas(w, h), cx = cv.getContext('2d');
+  cx.translate(w / 2, h / 2); cx.rotate(r); cx.drawImage(img, -img.width / 2, -img.height / 2);
+  const d = cx.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 8) {
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  }
+  const out = createCanvas(x1 - x0 + 1, y1 - y0 + 1);
+  out.getContext('2d').drawImage(cv, -x0, -y0);
+  return out;
+}
+
+let imgs = await Promise.all(picked.map((f) => loadImage(fs.readFileSync(f))));
+if (rotate) imgs = imgs.map((img) => rotateTrim(img, rotate));
 const maxW = Math.max(...imgs.map((i) => i.width)), maxH = Math.max(...imgs.map((i) => i.height));
 let s = Math.min(a.frameWidth / maxW, a.frameHeight / maxH);
 if (refFile) {
