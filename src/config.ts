@@ -27,6 +27,18 @@ export const SCORE = {
   finishBonus: 500,
 };
 
+/** Coin meter and element powers (see RunScene.activatePower). Durations × the weapon AWI's rarity. */
+export const POWER = {
+  perCoin: 0.05,      // 20 coins fill the meter
+  perKill: 0.06,
+  perNearMiss: 0.03,
+  fireMs: 2600,       // Blaze dash: invulnerable, 1.6× speed, smashes everything, crosses pits
+  fireSpeed: 1.6,
+  iceMs: 4200,        // Deep freeze: everything stops and shatters on touch; pits freeze over
+  stormPullMs: 3200,  // Chain storm: instant strike on everything on screen, then pulls every coin
+  shadowMs: 4200,     // Shadow walk: pass through anything, walk over pits
+};
+
 export const INPUT = {
   swipeMinPx: 34,   // in screen pixels
   swipeMaxMs: 450,

@@ -63,7 +63,21 @@ Done:
 - PWA: `manifest.webmanifest` (fullscreen, landscape), icons drawn by `npm run pwa:icons`, and a build-time service worker
   that precaches the shell and all resolved art (tested offline with `npm run preview`).
 
+- AWIs with real impact (design agreed 2026-11-15):
+  - **Obstacles that ask for AWIs:** pits (wide ones need the middle ledge or a double jump), high coin ledges,
+    head-height flies, armoured golems (4 HP, too tall to jump), rocks that fall onto a marked shadow.
+  - **Weapons:** Sword 2 dmg, Hammer 4 dmg (slow, short), Kunai 1 dmg thrown up to 400 px. Legendary +1 dmg.
+  - **Heroes:** Knight +1 heart (Legendary +2), Ninja higher jump and faster attacks, Robot landing stomp (radius × rarity).
+  - **Trinkets:** Feather double jump (Legendary triple), Magnet pulls coins, Shield blocks and recharges
+    (15 s − 2 s per tier, Epic+ 2 charges), Boots speed + score.
+  - **Coins fill a POWER meter** (20 coins; kills and near misses help). Swipe left / Q / E / the button fires the
+    weapon AWI's element: Fire *Blaze dash*, Ice *Deep freeze*, Storm *Chain storm*, Shadow *Shadow walk*.
+    Rarity makes it last longer. Guests get Fire.
+- Juice: squash & stretch, hit flash + knock-back + damage numbers, combo counter, coins fly to the HUD,
+  camera kick on attacks, slow-mo on near misses and the last heart (red edge), speed lines, power flash/zoom/ring.
+
 Still to do:
+- Play-test balance on a phone (spawn weights, meter fill rate, power durations: all in config.ts / RunScene.spawnPattern).
 - Deploy as a static site (e.g. `play.theoswap.io`): needs the developer's choice of host.
 - Real art for the sword, hammer, drone, slime, coins, spikes, flag, trinkets and UI, plus background layers.
 - Smaller hero PNGs (about 1 MB per skin now).

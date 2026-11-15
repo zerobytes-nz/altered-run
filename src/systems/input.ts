@@ -32,6 +32,9 @@ export class GestureInput {
       kb.on('keydown-D', () => this.queue.push('swipeRight'));
       kb.on('keydown-DOWN', () => this.queue.push('swipeDown'));
       kb.on('keydown-S', () => this.queue.push('swipeDown'));
+      kb.on('keydown-Q', () => this.queue.push('swipeLeft')); // POWER
+      kb.on('keydown-E', () => this.queue.push('swipeLeft'));
+      kb.on('keydown-LEFT', () => this.queue.push('swipeLeft'));
     }
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.destroy());
   }

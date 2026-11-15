@@ -51,7 +51,7 @@ Edit `assets.manifest.json` (key, path, size, frames, what it's for, source). If
 `scripts/placeholder-art.mjs`. Then run `npm run assets:placeholders && npm run assets:docs` and commit the
 manifest, the placeholder, and this file. Game code refers to assets **only by manifest key**.
 
-## Every file to replace (43)
+## Every file to replace (48)
 
 ### Hero skins (AWI slot: hero)
 
@@ -108,6 +108,9 @@ manifest, the placeholder, and this file. Game code refers to assets **only by m
 | `obj.spike` | `world/spike.png` | 104×80 | obstacle: ground spikes (jump over) Spikes touch the bottom edge. | → `licensed/` [craftpix.net — free platformer objects / traps / coins pack](https://craftpix.net/freebies/) |
 | `obj.crate` | `world/crate.png` | 112×112 | obstacle: crate (jump over, stand on, or smash) | **CC0** → `cc0/` [GameArt2D: Free Platformer Game Tileset](https://www.gameart2d.com/free-platformer-game-tileset.html)<br>files: `Crate.png` |
 | `obj.bar` | `world/bar.png` | 144×720 | obstacle: hanging sign/beam (slide under). The bottom 104 px is the sign; the rest is the pole/chain going up off-screen. | → `licensed/` [craftpix.net — free platformer objects / traps / coins pack](https://craftpix.net/freebies/) |
+| `obj.rock` | `world/rock.png` | 96×96 | falling rock: drops from the sky onto the shadow marked on the ground. | → `licensed/` [Altered Run original art](https://github.com/zerobytes-nz/altered-run) |
+| `obj.pit` | `world/pit.png` | 128×176 | hole in the ground, stretched to the pit's width. Top edge = running surface. | → `licensed/` [Altered Run original art](https://github.com/zerobytes-nz/altered-run) |
+| `obj.ledge` | `world/ledge.png` | 384×96 | floating one-way platform; the walkable surface is near the top edge (8 px down). | **CC0** → `cc0/` [GameArt2D: Free Platformer Game Tileset](https://www.gameart2d.com/free-platformer-game-tileset.html)<br>files: `Tiles 13.png + 14.png + 15.png side by side` |
 | `obj.coin` | `world/coin.png` | 336×56 · 6 × 56×56 @ 12 fps, loop | pickup: coin, 6-frame spin | → `licensed/` [craftpix.net — free platformer objects / traps / coins pack](https://craftpix.net/freebies/) |
 | `obj.flag` | `world/flag.png` | 120×320 | finish-line flag (also a small HUD icon) | → `licensed/` [craftpix.net — free platformer objects / traps / coins pack](https://craftpix.net/freebies/) |
 
@@ -116,6 +119,8 @@ manifest, the placeholder, and this file. Game code refers to assets **only by m
 | Key | File (under `public/assets/cc0/` or `public/assets/licensed/`) | Size · frames | Used for | Get it from |
 |---|---|---|---|---|
 | `enemy.slime` | `world/slime.png` | 448×88 · 4 × 112×88 @ 6 fps, loop | enemy: slime, 4-frame wobble (smash or stomp). Facing left. | → `licensed/` [craftpix.net — free slime / monster sprite pack](https://craftpix.net/freebies/) |
+| `enemy.fly` | `world/fly.png` | 192×72 · 2 × 96×72 @ 14 fps, loop | flying enemy at head height: slide under it or hit it. 2-frame wing flap, facing left. | **CC0** → `cc0/` [Kenney: Platformer Art Deluxe](https://kenney.nl/assets/platformer-art-deluxe) |
+| `enemy.armor` | `world/armor.png` | 512×340 · 4 × 128×340 @ 6 fps, loop | armoured golem, about 210 px tall in game: too tall for one jump (only a well-timed Ninja jump clears it): 4 HP, 4-frame walk facing left. Feet touch the bottom edge. | → `licensed/` [Altered Run original art](https://github.com/zerobytes-nz/altered-run) |
 
 ### Backgrounds
 
@@ -156,6 +161,9 @@ manifest, the placeholder, and this file. Game code refers to assets **only by m
 | `craftpix-enemies` | [craftpix.net — free slime / monster sprite pack](https://craftpix.net/freebies/) | no, `licensed/` | craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored). [Licence](https://craftpix.net/file-licenses/) |
 | `craftpix-gui` | [craftpix.net — free game GUI / icon pack](https://craftpix.net/freebies/) | no, `licensed/` | craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored). [Licence](https://craftpix.net/file-licenses/) |
 | `own` | [Altered Run original (placeholder generator)](scripts/placeholder-art.mjs) | yes (placeholder) | MIT, same as the code. Fine to commit. |
+| `original` | [Altered Run original art](https://github.com/zerobytes-nz/altered-run) | no, `licensed/` | MIT: drawn for this game in scripts/placeholder-art.mjs. These placeholders are the final art until something better is found. |
+| `kenney-platformer-deluxe` | [Kenney: Platformer Art Deluxe](https://kenney.nl/assets/platformer-art-deluxe) | yes, in `cc0/` | CC0 1.0 Universal (kenney.nl lists the pack as Creative Commons CC0; checked 2026-11-15). May be committed in public/assets/cc0/. Credit is optional. [Licence](https://kenney.nl/support) |
+| `rgsdev-melee` | [RGS_Dev: Free CC0 Melee Weapon Vector Sprites](https://rgsdev.itch.io/free-cc0-melee-weapon-vector-sprites) | yes, in `cc0/` | CC0 1.0 Universal (stated on the itch.io page, checked 2026-11-15; output of the author's generator is CC0 too). May be committed in public/assets/cc0/. Credit is optional. [Licence](https://rgsdev.itch.io/free-cc0-melee-weapon-vector-sprites) |
 
 Pack names and file names are suggestions. Any art works if it matches the size and frame layout above.
 Always read the licence on the pack's own page; the notes here are not legal advice.

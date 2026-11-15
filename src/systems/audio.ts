@@ -109,6 +109,23 @@ export const sfx = {
   shield: () => { tone({ f: 1200, f2: 600, dur: 0.25, type: 'sine', vol: 0.22 }); tone({ f: 1800, f2: 900, dur: 0.2, type: 'sine', vol: 0.1, at: 0.02 }); },
   die: () => [392, 330, 262, 196].forEach((f, i) => tone({ f, dur: 0.22, type: 'triangle', vol: 0.22, at: i * 0.13 })),
   finish: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone({ f, dur: i === 5 ? 0.5 : 0.14, type: 'square', vol: 0.13, at: i * 0.1 })),
+  clang: () => { tone({ f: 1400, f2: 900, dur: 0.12, type: 'square', vol: 0.12 }); tone({ f: 2100, dur: 0.18, type: 'sine', vol: 0.08 }); noise(0.06, 0.15, 6000, 3000, 0, 3); },
+  throw: () => noise(0.1, 0.18, 2500, 6000, 0, 2),
+  whistle: () => tone({ f: 1500, f2: 400, dur: 0.6, type: 'sine', vol: 0.07 }),
+  crash: () => { noise(0.3, 0.45, 900, 120, 0, 0.6); tone({ f: 110, f2: 40, dur: 0.3, type: 'sine', vol: 0.35 }); },
+  stomp: () => { tone({ f: 140, f2: 45, dur: 0.22, type: 'sine', vol: 0.45 }); noise(0.18, 0.25, 600, 120, 0, 0.7); },
+  pitFall: () => tone({ f: 600, f2: 80, dur: 0.5, type: 'triangle', vol: 0.22 }),
+  meterFull: () => [784, 988, 1175, 1568].forEach((f, i) => tone({ f, dur: 0.1, type: 'square', vol: 0.09, at: i * 0.05 })),
+  nearMiss: () => { noise(0.18, 0.12, 3000, 8000, 0, 1.5); tone({ f: 1200, f2: 1800, dur: 0.12, type: 'sine', vol: 0.08 }); },
+  combo: (n: number) => tone({ f: 523 * 2 ** (Math.min(n, 10) / 12), dur: 0.14, type: 'triangle', vol: 0.16 }),
+  zap: () => { noise(0.25, 0.3, 8000, 1500, 0, 1); tone({ f: 90, dur: 0.25, type: 'sawtooth', vol: 0.12 }); },
+  power: (el: 'Fire' | 'Ice' | 'Storm' | 'Shadow') => {
+    if (el === 'Fire') { noise(0.7, 0.35, 400, 3000, 0, 0.8); tone({ f: 110, f2: 330, dur: 0.6, type: 'sawtooth', vol: 0.14 }); }
+    else if (el === 'Ice') { [2093, 2637, 3136, 2349].forEach((f, i) => tone({ f, dur: 0.4, type: 'sine', vol: 0.09, at: i * 0.06 })); noise(0.5, 0.12, 9000, 5000, 0, 3); }
+    else if (el === 'Storm') { noise(0.6, 0.45, 5000, 300, 0, 0.5); tone({ f: 60, dur: 0.5, type: 'sawtooth', vol: 0.18 }); }
+    else { tone({ f: 220, f2: 110, dur: 0.8, type: 'triangle', vol: 0.18 }); tone({ f: 233, f2: 117, dur: 0.8, type: 'sine', vol: 0.12 }); }
+    [523, 659, 784, 1047].forEach((f, i) => tone({ f, dur: 0.16, type: 'square', vol: 0.08, at: 0.05 + i * 0.06 }));
+  },
   /** Reveal card: bigger fanfare for rarer AWIs (tier 0 = Common … 3 = Legendary). */
   reveal: (tier: number) => {
     const notes = [[523, 659], [523, 659, 784], [523, 659, 784, 1047], [523, 659, 784, 1047, 1319, 1568]][Math.max(0, Math.min(3, tier))];

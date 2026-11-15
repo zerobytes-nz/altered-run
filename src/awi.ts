@@ -104,32 +104,64 @@ export function loadoutFrom(awis: AWI[], sel: Selection): Loadout {
 
   const hero = chosen('skin'), weapon = chosen('weapon'), pet = chosen('pet'), trinket = chosen('trinket');
   lo.awis = { skin: hero, weapon, pet, trinket };
-  if (hero) lo.hearts += tier(hero) >= 3 ? 1 : 0;                       // Legendary hero: +1 heart
-  if (weapon) lo.weapon = { ...lo.weapon, range: Math.round(lo.weapon.range * mult(weapon)), tint: ELEMENT_COLOR[weapon.element] };
-  if (pet) lo.pet = { ...lo.pet, radius: Math.round(lo.pet.radius * mult(pet)) };
+  if (hero) {
+    const s = { ...lo.skin }, t = tier(hero);
+    if (s.extraHearts) { s.extraHearts += t >= 3 ? 1 : 0; lo.hearts += t >= 3 ? 1 : 0; }   // Legendary Knight: +2 hearts
+    if (s.jumpMul) { s.jumpMul += 0.02 * t; s.attackCdMul = (s.attackCdMul ?? 1) - 0.04 * t; }
+    if (s.stomp) s.stomp = Math.round(s.stomp * mult(hero));
+    lo.skin = s;
+  }
+  if (weapon) {
+    lo.weapon = {
+      ...lo.weapon,
+      range: Math.round(lo.weapon.range * mult(weapon)),
+      damage: lo.weapon.damage + (tier(weapon) >= 3 ? 1 : 0),           // Legendary: +1 damage
+      tint: ELEMENT_COLOR[weapon.element],
+    };
+    lo.element = weapon.element;
+    lo.powerMul = mult(weapon);
+  }
+  if (pet) lo.pet = { ...lo.pet, radius: Math.round(lo.pet.radius * mult(pet)), speed: Math.round(lo.pet.speed * mult(pet)) };
   if (trinket) {
-    const t = { ...lo.trinket };
-    if (t.airJumps) t.airJumps += tier(trinket) >= 3 ? 1 : 0;          // Legendary feather: triple jump
+    const t = { ...lo.trinket }, k = tier(trinket);
+    if (t.airJumps) t.airJumps += k >= 3 ? 1 : 0;                       // Legendary feather: triple jump
     if (t.magnet) t.magnet = Math.round(t.magnet * mult(trinket));
-    if (t.shield) t.shield += tier(trinket) >= 2 ? 1 : 0;              // Epic+ shield: blocks 2 hits
-    if (t.scoreMul) t.scoreMul = +(t.scoreMul + 0.05 * tier(trinket)).toFixed(2);
+    if (t.shield) { t.shield += k >= 2 ? 1 : 0; t.shieldRechargeMs = (t.shieldRechargeMs ?? 15000) - 2000 * k; }
+    if (t.scoreMul) t.scoreMul = +(t.scoreMul + 0.05 * k).toFixed(2);
     lo.trinket = t;
   }
   return lo;
 }
 
 /** What the rarity does for this AWI, for the reveal card and loadout screen. */
+/** What an AWI does in a run, shown on the reveal card and the loadout screen. */
 export function perkText(a: AWI): string {
   const pct = Math.round((RARITY_MULT[a.rarity] - 1) * 100);
   const t = RARITIES.indexOf(a.rarity);
+  const plus = pct ? ` · +${pct}%` : '';
   switch (a.slot) {
-    case 'skin': return t >= 3 ? '+1 heart' : 'Hero skin';
-    case 'weapon': return `${a.element} slash${pct ? ` · +${pct}% reach` : ''}`;
-    case 'pet': return pct ? `+${pct}% coin range` : 'Collects coins';
+    case 'skin':
+      if (a.id === 'knight') return t >= 3 ? '+2 hearts' : '+1 heart';
+      if (a.id === 'ninja') return `Higher jump · faster attacks${t ? ` (+${t} tier)` : ''}`;
+      return `Landing stomp${plus} radius`;
+    case 'weapon': {
+      const w = WEAPONS[a.id];
+      return `${POWER_NAME[a.element]} power${plus} · ${w?.damage ?? 1}${t >= 3 ? '+1' : ''} dmg${a.id === 'kunai' ? ' · thrown' : ''}`;
+    }
+    case 'pet': return `Fetches coins${plus}`;
     case 'trinket':
       if (a.id === 'doubleJump') return t >= 3 ? 'Triple jump' : 'Double jump';
-      if (a.id === 'shield') return t >= 2 ? 'Blocks 2 hits' : 'Blocks 1 hit';
-      if (a.id === 'magnet') return `Pulls coins${pct ? ` · +${pct}% range` : ''}`;
+      if (a.id === 'shield') return `${t >= 2 ? 'Blocks 2 hits' : 'Blocks 1 hit'} · recharges in ${15 - 2 * t}s`;
+      if (a.id === 'magnet') return `Pulls coins${plus} range`;
       return `+10% speed · +${20 + 5 * t}% score`;
   }
 }
+
+/** The element POWER fired when the coin meter is full (see RunScene.activatePower). */
+export const POWER_NAME: Record<Element, string> = { Fire: 'Blaze dash', Ice: 'Deep freeze', Storm: 'Chain storm', Shadow: 'Shadow walk' };
+export const POWER_DESC: Record<Element, string> = {
+  Fire: 'Charge through everything, even pits',
+  Ice: 'Freeze every enemy, rock and pit',
+  Storm: 'Lightning hits everything on screen, then pulls coins',
+  Shadow: 'Pass through anything unharmed',
+};

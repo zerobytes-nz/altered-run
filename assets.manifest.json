@@ -76,6 +76,25 @@
       "name": "Altered Run original (placeholder generator)",
       "url": "scripts/placeholder-art.mjs",
       "licence": "MIT, same as the code. Fine to commit."
+    },
+    "original": {
+      "name": "Altered Run original art",
+      "url": "https://github.com/zerobytes-nz/altered-run",
+      "licence": "MIT: drawn for this game in scripts/placeholder-art.mjs. These placeholders are the final art until something better is found."
+    },
+    "kenney-platformer-deluxe": {
+      "name": "Kenney: Platformer Art Deluxe",
+      "url": "https://kenney.nl/assets/platformer-art-deluxe",
+      "licence": "CC0 1.0 Universal (kenney.nl lists the pack as Creative Commons CC0; checked 2026-11-15). May be committed in public/assets/cc0/. Credit is optional.",
+      "cc0": true,
+      "licenceUrl": "https://kenney.nl/support"
+    },
+    "rgsdev-melee": {
+      "name": "RGS_Dev: Free CC0 Melee Weapon Vector Sprites",
+      "url": "https://rgsdev.itch.io/free-cc0-melee-weapon-vector-sprites",
+      "licence": "CC0 1.0 Universal (stated on the itch.io page, checked 2026-11-15; output of the author's generator is CC0 too). May be committed in public/assets/cc0/. Credit is optional.",
+      "cc0": true,
+      "licenceUrl": "https://rgsdev.itch.io/free-cc0-melee-weapon-vector-sprites"
     }
   },
   "assets": [
@@ -639,6 +658,80 @@
         "frameRate": 6,
         "repeat": -1
       }
+    },
+    {
+      "key": "enemy.fly",
+      "type": "spritesheet",
+      "path": "world/fly.png",
+      "width": 192,
+      "height": 72,
+      "frameWidth": 96,
+      "frameHeight": 72,
+      "frameCount": 2,
+      "displayScale": 0.5,
+      "usedFor": "flying enemy at head height: slide under it or hit it. 2-frame wing flap, facing left.",
+      "source": "kenney-platformer-deluxe",
+      "animation": {
+        "frameRate": 14,
+        "repeat": -1
+      }
+    },
+    {
+      "key": "enemy.armor",
+      "type": "spritesheet",
+      "path": "world/armor.png",
+      "width": 512,
+      "height": 340,
+      "frameWidth": 128,
+      "frameHeight": 340,
+      "frameCount": 4,
+      "displayScale": 0.62,
+      "usedFor": "armoured golem, about 210 px tall in game: too tall for one jump (only a well-timed Ninja jump clears it): 4 HP, 4-frame walk facing left. Feet touch the bottom edge.",
+      "source": "original",
+      "animation": {
+        "frameRate": 6,
+        "repeat": -1
+      }
+    },
+    {
+      "key": "obj.rock",
+      "type": "image",
+      "path": "world/rock.png",
+      "width": 96,
+      "height": 96,
+      "frameWidth": 96,
+      "frameHeight": 96,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "falling rock: drops from the sky onto the shadow marked on the ground.",
+      "source": "original"
+    },
+    {
+      "key": "obj.pit",
+      "type": "image",
+      "path": "world/pit.png",
+      "width": 128,
+      "height": 176,
+      "frameWidth": 128,
+      "frameHeight": 176,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "hole in the ground, stretched to the pit's width. Top edge = running surface.",
+      "source": "original"
+    },
+    {
+      "key": "obj.ledge",
+      "type": "image",
+      "path": "world/ledge.png",
+      "width": 384,
+      "height": 96,
+      "frameWidth": 384,
+      "frameHeight": 96,
+      "frameCount": 1,
+      "displayScale": 0.5,
+      "usedFor": "floating one-way platform; the walkable surface is near the top edge (8 px down).",
+      "source": "gameart2d-tileset",
+      "sourceFiles": "Tiles 13.png + 14.png + 15.png side by side"
     },
     {
       "key": "obj.coin",
