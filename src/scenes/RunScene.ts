@@ -344,6 +344,7 @@ export class RunScene extends Phaser.Scene {
 
   /** A touch-down in a button's zone fires that button (and is not a jump). Wired to GestureInput.claim. */
   private claimTouch(p: Phaser.Input.Pointer): boolean {
+    if (this.dead || this.ended) return false; // the buttons are faded out once the run is over
     const A = BTN.attack, P = BTN.power;
     const press = (c: Phaser.GameObjects.Container) => { c.setScale(0.88); this.time.delayedCall(110, () => c.setScale(1)); };
     const da = Phaser.Math.Distance.Between(p.x, p.y, A.x, A.y), dp = Phaser.Math.Distance.Between(p.x, p.y, P.x, P.y);
@@ -393,6 +394,7 @@ export class RunScene extends Phaser.Scene {
     this.attackArc.clear();
     if (left > 0) this.attackArc.fillStyle(0x000000, 0.45).slice(0, 0, BTN.attack.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left).fillPath();
     this.attackBtn.setAlpha(left > 0 ? 0.7 : 1);
+    if (this.dead || this.ended) { this.attackBtn.setAlpha(0.25); this.powerBtn.setAlpha(0.25).setScale(1); }
     this.vignette.setAlpha(this.hearts === 1 && !this.dead ? 0.55 + Math.sin(this.now / 160) * 0.35 : 0);
     if (++this.hudTick % 6 !== 0) return; // text re-rasterises: update ~10×/s, only on change
     const s = this.score();
@@ -621,7 +623,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   private tryAttack(): void {
-    if (this.now < this.attackReadyAt) return;
+    if (this.dead || this.ended || this.now < this.attackReadyAt) return;
     const w = this.lo.weapon;
     this.attackReadyAt = this.now + w.cooldownMs * (this.lo.skin.attackCdMul ?? 1);
     this.slideUntil = 0;

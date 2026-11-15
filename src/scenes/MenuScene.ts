@@ -4,6 +4,7 @@ import { ensureLoaded, scaleOf } from '../assets';
 import { currentLoadout, loadProfile } from '../theoswap';
 import { loadScores } from '../systems/highscores';
 import { button, muteButton, slotRow, text } from '../ui';
+import { canInstall, install, isInstalled, onInstallChange, tryCloseApp } from '../systems/install';
 
 export class MenuScene extends Phaser.Scene {
   constructor() { super('Menu'); }
@@ -36,7 +37,60 @@ export class MenuScene extends Phaser.Scene {
     text(this, 16, GAME_H - 12, `v0.1 · ${RUN.durationSec}s runs`, 12, '#ffffff', '700').setOrigin(0, 1).setStroke('#2b2440', 3);
 
     muteButton(this, GAME_W - 34, 34);
+    this.appButtons();
     this.input.keyboard?.once('keydown-SPACE', () => this.play());
+  }
+
+  /** Top corners: "Install app" (until it is installed) and "Exit" (in full screen or the installed app). */
+  private appButtons(): void {
+    const inst = button(this, 104, 34, '📲 Install app', () => this.installApp(), 176, 44, 0x2a9d8f);
+    (inst.list[1] as Phaser.GameObjects.Text).setFontSize(18);
+    const exit = button(this, GAME_W - 132, 34, '✕ Exit', () => this.exitApp(), 110, 44, 0x6c1d45);
+    (exit.list[1] as Phaser.GameObjects.Text).setFontSize(18);
+    const sync = () => {
+      inst.setVisible(canInstall());
+      exit.setVisible(isInstalled() || this.scale.isFullscreen);
+    };
+    sync();
+    const off = onInstallChange(sync);
+    this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, sync).on(Phaser.Scale.Events.LEAVE_FULLSCREEN, sync);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      off();
+      this.scale.off(Phaser.Scale.Events.ENTER_FULLSCREEN, sync).off(Phaser.Scale.Events.LEAVE_FULLSCREEN, sync);
+    });
+  }
+
+  private installApp(): void {
+    install().then((r) => {
+      if (r === 'ios') {
+        this.notice('INSTALL ON IPHONE / IPAD', [
+          '1.  Tap the Share button  ⬆  in the browser bar',
+          '2.  Choose  "Add to Home Screen"',
+          '3.  Open Altered Run from your home screen:',
+          '     it plays full screen, even offline.',
+        ]);
+      } else if (r === 'unavailable') {
+        this.notice('INSTALL', ['Open your browser menu  ⋮  and choose', '"Install app" or "Add to Home screen".']);
+      }
+    });
+  }
+
+  private exitApp(): void {
+    if (this.scale.isFullscreen && !isInstalled()) { this.scale.stopFullscreen(); return; }
+    tryCloseApp().then((closed) => {
+      if (!closed) this.notice('CLOSE THE GAME', ['Swipe up, or use your phone\'s Home or Back', 'button. Your progress is saved.']);
+    });
+  }
+
+  /** A simple panel; tap anywhere to close it. */
+  private notice(title: string, lines: string[]): void {
+    const layer = this.add.container(0, 0).setDepth(20);
+    const shade = this.add.rectangle(0, 0, GAME_W, GAME_H, 0x000000, 0.75).setOrigin(0).setInteractive();
+    const panel = this.add.rectangle(GAME_W / 2, GAME_H / 2, 600, 300, 0x1b2550).setStrokeStyle(3, 0x8fa3ff, 0.6);
+    layer.add([shade, panel, text(this, GAME_W / 2, GAME_H / 2 - 110, title, 28).setOrigin(0.5)]);
+    lines.forEach((l, i) => layer.add(text(this, GAME_W / 2 - 250, GAME_H / 2 - 60 + i * 36, l, 20, '#e8ecff', '600').setOrigin(0, 0.5)));
+    layer.add(text(this, GAME_W / 2, GAME_H / 2 + 120, 'Tap to close', 15, '#8fa3ff', '600').setOrigin(0.5));
+    shade.on('pointerup', () => layer.destroy());
   }
 
   private play(): void {

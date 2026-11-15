@@ -8,6 +8,7 @@ import { ConnectScene } from './scenes/ConnectScene';
 import { RevealScene } from './scenes/RevealScene';
 import { LoadoutScene } from './scenes/LoadoutScene';
 import { initAudio } from './systems/audio';
+import './systems/install'; // listen for the browser's install prompt from the very first moment
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
