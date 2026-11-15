@@ -11,11 +11,16 @@ import { ROOT } from './lib/assets.mjs';
 
 const dry = process.argv.includes('--dry-run');
 
+/** A value from .env.production (wins, like Vite's build) or .env. */
 function fromDotEnv(name) {
-  const f = path.join(ROOT, '.env');
-  if (!fs.existsSync(f)) return '';
-  const line = fs.readFileSync(f, 'utf8').split('\n').find((l) => l.startsWith(`${name}=`));
-  return line ? line.slice(name.length + 1).trim().replace(/^["']|["']$/g, '') : '';
+  for (const file of ['.env.production', '.env']) {
+    const f = path.join(ROOT, file);
+    if (!fs.existsSync(f)) continue;
+    const line = fs.readFileSync(f, 'utf8').split('\n').find((l) => l.startsWith(`${name}=`));
+    const v = line ? line.slice(name.length + 1).trim().replace(/^["']|["']$/g, '') : '';
+    if (v) return v;
+  }
+  return '';
 }
 
 let target = process.env.DEPLOY_TARGET || fromDotEnv('DEPLOY_TARGET');
@@ -32,6 +37,20 @@ const run = (cmd, args) => {
 };
 
 run('npm', ['run', 'build']);
+
+// Never upload an API key: live builds reach TheoSwap through the server's proxy (VITE_THEOSWAP_PROXY).
+const key = process.env.VITE_THEOSWAP_API_KEY || fromDotEnv('VITE_THEOSWAP_API_KEY');
+if (!(process.env.VITE_THEOSWAP_PROXY || fromDotEnv('VITE_THEOSWAP_PROXY'))) {
+  console.error('\n✘ VITE_THEOSWAP_PROXY is not set, so the build would call TheoSwap with the API key in the browser.\n' +
+    '  Put VITE_THEOSWAP_PROXY=./api/user-items in .env.production (see README → Deploy).');
+  process.exit(1);
+}
+if (key.length >= 8) {
+  const js = fs.readdirSync(path.join(ROOT, 'dist/assets')).filter((f) => f.endsWith('.js'));
+  const leak = js.find((f) => fs.readFileSync(path.join(ROOT, 'dist/assets', f), 'utf8').includes(key));
+  if (leak) { console.error(`\n✘ dist/assets/${leak} contains the API key. Not uploading.`); process.exit(1); }
+}
+console.log('✔ No API key in the build: it reaches TheoSwap through the proxy.');
 // dist/ with the trailing slash = upload the folder's contents. --delete removes files the new build no longer has.
 run('rsync', ['-avz', '--delete', ...(dry ? ['--dry-run'] : []), 'dist/', target]);
 console.log(dry ? '\n✔ Dry run only: nothing was uploaded. Run `npm run deploy` to upload.' : `\n✔ Deployed to ${target}`);

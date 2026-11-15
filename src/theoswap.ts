@@ -1,16 +1,21 @@
 // TheoSwap connection: fetch a player's AWIs with their user code, cache the last good answer
 // for bad signal, and remember the player's profile (code + chosen AWIs) between visits.
 //
-// The game calls GET /api/public/user-items directly (that endpoint allows any origin).
-// The developer chose this over a proxy, so the API key below IS visible in the built game.
-// Ship only the TEST key until a proxy is in place (see PLAN.md → milestone 2).
+// Two ways to reach GET /api/public/user-items:
+//   • Proxy (live builds): VITE_THEOSWAP_PROXY is a URL on our own server (e.g. ./api/user-items) that
+//     adds the API key server-side (nginx, see README → Deploy). The build then holds NO key at all.
+//   • Direct (dev / demos): the browser calls TheoSwap with VITE_THEOSWAP_API_KEY, which Vite puts in the
+//     bundle where anyone can read it. Only ever the TEST key.
 import { defaultSelection, loadoutFrom, parseAwis, type ApiItem, type AWI, type Selection } from './awi';
 import { guestLoadout, type Loadout } from './loadout';
 import { DEMO_PROFILES, type DemoId } from './demo';
 
 const BASE = (import.meta.env.VITE_THEOSWAP_URL as string | undefined) || 'https://www.theoswap.io';
-const KEY = (import.meta.env.VITE_THEOSWAP_API_KEY as string | undefined) || '';
-export const hasApiKey = KEY.length > 0;
+const PROXY = (import.meta.env.VITE_THEOSWAP_PROXY as string | undefined) || '';
+// With a proxy the key is never read, so the minifier drops it from the bundle (npm run deploy checks).
+const KEY = PROXY ? '' : (import.meta.env.VITE_THEOSWAP_API_KEY as string | undefined) || '';
+/** True when this build can look up real players (through the proxy, or with a key). */
+export const hasApiKey = PROXY.length > 0 || KEY.length > 0;
 
 const LS_PROFILE = 'altered-run.profile.v1';
 const LS_ITEMS = 'altered-run.items.v1.'; // + code
@@ -41,8 +46,10 @@ export const normalizeCode = (s: string) => s.replace(/[^A-Za-z0-9]/g, '').slice
 export class ConnectError extends Error {}
 
 async function fetchResults(code: string): Promise<ApiItem[]> {
-  if (!hasApiKey) throw new ConnectError('This build has no TheoSwap API key (set VITE_THEOSWAP_API_KEY in .env).');
-  const url = `${BASE}/api/public/user-items?${new URLSearchParams({ apiKey: KEY, userCode: code })}`;
+  if (!hasApiKey) throw new ConnectError('This build has no TheoSwap connection (set VITE_THEOSWAP_PROXY or VITE_THEOSWAP_API_KEY).');
+  const url = PROXY
+    ? `${new URL(PROXY, document.baseURI)}?${new URLSearchParams({ userCode: code })}`
+    : `${BASE}/api/public/user-items?${new URLSearchParams({ apiKey: KEY, userCode: code })}`;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 9000);
   try {

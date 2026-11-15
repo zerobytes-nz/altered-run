@@ -42,17 +42,21 @@ A fresh clone runs on the committed art: **CC0 art from GameArt2D** (`public/ass
 The build is a plain static folder: `index.html`, `sw.js`, `manifest.webmanifest`, `icons/`, `assets/`.
 Vite's `base` is `./`, so it works from any sub-folder. Live location: `/var/www/games.theoswap.io/altered-run`.
 
-Put the server in `.env` (gitignored) once: `DEPLOY_TARGET=user@host:/var/www/games.theoswap.io/altered-run/`, then:
+One-time setup on your machine (both files are gitignored):
+- `.env`: `DEPLOY_TARGET=user@host:/var/www/games.theoswap.io/altered-run/`
+- `.env.production`: `VITE_THEOSWAP_PROXY=./api/user-items` (live builds talk to the nginx proxy below, so they hold no key)
+
+Then:
 
 ```bash
 npm run deploy:check   # build, then list what rsync would change (uploads nothing)
 npm run deploy         # build, then rsync dist/ to DEPLOY_TARGET (--delete removes files the build no longer has)
 ```
 
-The folder must exist on the server and be writable by that SSH user.
+The folder must exist on the server and be writable by that SSH user. `npm run deploy` refuses to upload if
+`VITE_THEOSWAP_PROXY` is not set or if any API key ended up in the JS.
 
-- Build on a machine that has `.env` with the **test** key (it is baked into the JS) and the licensed art in
-  `public/assets/licensed/` if you want it: the build ships whichever art it finds (licensed → CC0 → placeholder).
+- The build ships whichever art it finds (licensed → CC0 → placeholder), so build where `public/assets/licensed/` is filled in if you want that art.
   Shipping licensed art inside the game is fine; only putting the raw files in git is not.
 - If the `games.theoswap.io` server block already has `root /var/www/games.theoswap.io;`, nginx needs no new
   `location`: the folder is served as `/altered-run/`. Add these so updates reach players straight away
@@ -66,6 +70,34 @@ location = /altered-run/manifest.webmanifest { add_header Cache-Control "no-cach
 location ~ ^/altered-run/assets/.+-[\w-]{8}\.js$ { add_header Cache-Control "public, max-age=31536000, immutable"; }
 ```
 
+### The API proxy (keeps the live key off players' devices)
+
+The game asks its own server for `/altered-run/api/user-items?userCode=…`. nginx adds the **live** API key and
+forwards the request to TheoSwap, so the key only exists in the nginx config on the server. No Node process:
+it is a few lines in the `games.theoswap.io` server block.
+
+```nginx
+# Altered Run → TheoSwap player lookup. The live key lives only here.
+location = /altered-run/api/user-items {
+    limit_except GET { deny all; }
+    if ($arg_userCode !~ "^[A-Za-z0-9]{4,16}$") { return 400; }
+    set $args "apiKey=LIVE_API_KEY_HERE&userCode=$arg_userCode";
+    proxy_pass https://www.theoswap.io/api/public/user-items;
+    proxy_ssl_server_name on;
+    proxy_set_header Host www.theoswap.io;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    add_header Cache-Control "no-store" always;
+}
+```
+
+Then `sudo nginx -t && sudo systemctl reload nginx`, and check
+`https://games.theoswap.io/altered-run/api/user-items?userCode=TESTCODE` answers. The `if` line rejects anything but a
+plain 4–16 letter/digit code, so the URL cannot be bent into other requests. Every lookup comes from the server's
+IP, so if TheoSwap rate-limits the public API per IP, allow that address.
+
+Locally, `npm run dev` and `npm run preview` have the same `/api/user-items` route (in `vite.config.ts`), using the
+**test** key from `.env` in Node, so the browser never sees it either.
+
 - TheoSwap game website (for the "Play" link): `https://games.theoswap.io/altered-run/?userCode=$USER_CODE`.
   The game reads the code, removes it from the address bar and connects.
 
@@ -74,9 +106,10 @@ location ~ ^/altered-run/assets/.+-[\w-]{8}\.js$ { add_header Cache-Control "pub
 Players tap **Connect TheoSwap**, enter the player code from their TheoSwap profile, and their NFTs
 become AWIs (reveal cards, then a loadout screen). Without a code, three demo players work offline.
 
-Copy `.env.example` to `.env` (gitignored) and set `VITE_THEOSWAP_API_KEY`. The game calls TheoSwap
-directly, so Vite puts this key **in the browser build**: use the game's **test** key until a proxy is
-in place. `check-assets` allows only that one `VITE_*KEY` name and still rejects other key-like
+Copy `.env.example` to `.env` (gitignored) and set `VITE_THEOSWAP_API_KEY` to the game's **test** key.
+- With `VITE_THEOSWAP_PROXY` set (always for live builds: `.env.production`), the game calls that URL and the key is
+  left out of the bundle. The **live** key is only ever in the server's nginx config (see Deploy → The API proxy).
+- Without it, the game calls TheoSwap directly with the key, which Vite then puts **in the browser build**: test key only. `check-assets` allows only that one `VITE_*KEY` name and still rejects other key-like
 `VITE_*` names and hard-coded `apiKey` values.
 
 ## Licence

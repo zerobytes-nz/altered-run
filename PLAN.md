@@ -39,7 +39,7 @@ Stack: **Phaser 3 + TypeScript + Vite**, static build, landscape, mobile-first.
   about 52/29/14/5%; 21 is coprime with 4 so Rarity and Element roll independently) and **Element** (Fire / Ice / Shadow / Storm).
 - Game icon, banner, genres and platforms set on TheoSwap.
 - Connect screen: player code → `GET /api/public/user-items` **called directly from the game** (the developer's choice; the
-  endpoint allows any origin). `VITE_THEOSWAP_API_KEY` is therefore in the bundle: **test key only** until a proxy exists.
+  endpoint allows any origin). Direct calls put `VITE_THEOSWAP_API_KEY` in the bundle (**test key only**); live builds go through the nginx proxy instead.
 - Deep link: `/?userCode=CODE` connects straight away and removes the code from the URL. Set the game website on TheoSwap to
   `https://<host>/?userCode=$USER_CODE` once it is hosted.
 - Reveal cards ("Your NFT became a Legendary Storm Kunai"), with ×N for identical AWIs.
@@ -51,7 +51,7 @@ Stack: **Phaser 3 + TypeScript + Vite**, static build, landscape, mobile-first.
   with the test key), bundled sample data without a key.
 
 Left open (needs a decision or a TheoSwap change):
-- Before using the **live** key: a small proxy (e.g. Cloudflare Worker) so the key leaves the bundle.
+- ✅ Live key: an nginx proxy on games.theoswap.io adds it server-side; live builds set `VITE_THEOSWAP_PROXY` and hold no key (README → Deploy).
 - NFT images on the reveal card: `user-items` deletes `itemData.image`; needs the proxy or a TheoSwap change. Cards show the AWI art for now.
 
 ### 3. Polish (in progress)

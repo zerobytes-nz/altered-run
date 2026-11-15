@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import { resolveAssets, loadManifest, PUBLIC_DIR, MANIFEST_FILE } from './scripts/lib/assets.mjs';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -88,7 +88,10 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  const url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Player lookups (the TheoSwap proxy) are never cached here: the game keeps its own per-code cache.
+  if (url.pathname.includes('/api/')) return;
   if (req.mode === 'navigate') {
     // Page loads: network first (fresh deploys win), the cached shell when offline. ?userCode= is kept by the page itself.
     e.respondWith(fetch(req).catch(() => caches.match(scoped('./'), { ignoreVary: true })));
@@ -101,7 +104,26 @@ self.addEventListener('fetch', (e) => {
 });
 `;
 
-export default defineConfig({
+/**
+ * Stand-in for the nginx proxy so `npm run dev` / `npm run preview` work when VITE_THEOSWAP_PROXY is set:
+ * /api/user-items?userCode=… → TheoSwap /api/public/user-items with the key from .env added here, in Node,
+ * never in the browser. Uses VITE_THEOSWAP_API_KEY (keep that the TEST key locally).
+ */
+function localProxy(mode: string): Record<string, ProxyOptions> {
+  const env = loadEnv(mode, process.cwd(), '');
+  const target = env.VITE_THEOSWAP_URL || 'https://www.theoswap.io';
+  return {
+    '/api/user-items': {
+      target, changeOrigin: true,
+      rewrite: (p) => {
+        const q = new URLSearchParams(p.split('?')[1] ?? '');
+        return `/api/public/user-items?${new URLSearchParams({ apiKey: env.VITE_THEOSWAP_API_KEY ?? '', userCode: q.get('userCode') ?? '' })}`;
+      },
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => ({
   base: './',
   plugins: [assetUrls(), serviceWorker()],
   build: {
@@ -109,5 +131,6 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
     rollupOptions: { output: { manualChunks: { phaser: ['phaser'] } } },
   },
-  server: { port: 5180, strictPort: true },
-});
+  server: { port: 5180, strictPort: true, proxy: localProxy(mode) },
+  preview: { proxy: localProxy(mode) },
+}));
