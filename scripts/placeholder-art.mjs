@@ -111,15 +111,88 @@ function dog(c, i) {
   c.fillStyle = '#7d5c44';
   if (up) { c.fillRect(12, 24, 5, 8); c.fillRect(22, 24, 5, 8); } else { c.fillRect(8 + i, 25, 5, 8); c.fillRect(26 - i, 25, 5, 8); }
 }
+// Cartoon style to match the GameArt2D heroes: flat colours, a soft highlight, dark rounded outline.
+const INK = '#2b2440';
+function ink(c, w = 1.6) { c.lineWidth = w; c.strokeStyle = INK; c.lineJoin = 'round'; c.lineCap = 'round'; c.stroke(); }
+function grad(c, y0, y1, a, b) { const g = c.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, a); g.addColorStop(1, b); return g; }
+
+/** Hover drone, 48×36 logical, 4 frames: rotors spin, body bobs, eye blinks on frame 3. */
 function drone(c, i) {
-  c.translate(2, 4 + (i % 2));
-  c.fillStyle = '#9aa5b1'; rr(c, 10, 12, 24, 12, 5);
-  c.fillStyle = '#4cc9f0'; c.fillRect(26, 15, 5, 5);
-  c.fillStyle = '#556'; c.fillRect(4, 8, 36, 3);
-  c.fillStyle = 'rgba(200,220,255,0.7)';
-  const wd = [14, 8, 4, 8][i % 4];
-  c.fillRect(7 - wd / 2, 5, wd, 2); c.fillRect(37 - wd / 2, 5, wd, 2);
+  const bob = [0, -1, 0, 1][i];
+  c.translate(0, bob);
+  // rotor arms + hubs
+  c.fillStyle = '#5b6375';
+  for (const x of [10, 38]) { c.beginPath(); c.roundRect(x - 2, 9, 4, 7, 1); c.fill(); ink(c, 1.2); }
+  c.beginPath(); c.roundRect(9, 13, 30, 4, 2); c.fill(); ink(c, 1.2);
+  // spinning blades: a squashed ellipse whose width cycles
+  const bw = [9, 6, 2, 6][i];
+  c.fillStyle = 'rgba(210,225,255,0.85)';
+  for (const x of [10, 38]) { c.beginPath(); c.ellipse(x, 8, bw, 2.2, 0, 0, TAU); c.fill(); ink(c, 1); }
+  // body
+  c.beginPath(); c.ellipse(24, 23, 14, 10, 0, 0, TAU);
+  c.fillStyle = grad(c, 13, 33, '#d9e2ef', '#8796ad'); c.fill(); ink(c);
+  // belly plate + thruster glow
+  c.beginPath(); c.ellipse(24, 31, 6, 2.6, 0, 0, TAU); c.fillStyle = '#5b6375'; c.fill(); ink(c, 1.2);
+  c.fillStyle = 'rgba(128,255,219,0.75)'; c.beginPath(); c.ellipse(24, 34.5, 3.5, 1.4 + (i % 2) * 0.5, 0, 0, TAU); c.fill();
+  // visor + eye (looks right, the direction of travel)
+  c.beginPath(); c.roundRect(22, 17, 15, 9, 4.5); c.fillStyle = '#1c2340'; c.fill(); ink(c, 1.2);
+  c.fillStyle = '#4cc9f0';
+  if (i === 3) c.fillRect(29, 21, 6, 1.4); else { c.beginPath(); c.arc(32, 21.5, 2.6, 0, TAU); c.fill(); c.fillStyle = '#fff'; circle(c, 33, 20.5, 0.9); }
+  // highlight
+  c.fillStyle = 'rgba(255,255,255,0.55)'; c.beginPath(); c.ellipse(17, 18, 4.5, 2, -0.5, 0, TAU); c.fill();
 }
+
+/** Round badge behind each trinket so the four icons read as one set (32×32 logical). */
+function badge(c, a, b) {
+  c.beginPath(); c.arc(16, 16, 14.5, 0, TAU); c.fillStyle = grad(c, 2, 30, a, b); c.fill(); ink(c, 1.4);
+  c.fillStyle = 'rgba(255,255,255,0.25)'; c.beginPath(); c.ellipse(12, 9, 7, 3.5, -0.5, 0, TAU); c.fill();
+}
+
+const trinkets = {
+  feather(c) {
+    badge(c, '#8be0ff', '#3a86c8');
+    c.save(); c.translate(16, 16); c.rotate(0.65);
+    c.beginPath(); c.moveTo(0, -12); c.bezierCurveTo(7, -7, 6, 5, 0, 10); c.bezierCurveTo(-6, 5, -7, -7, 0, -12);
+    c.fillStyle = grad(c, -12, 10, '#ffffff', '#d7f2ff'); c.fill(); ink(c, 1.3);
+    c.beginPath(); c.moveTo(0, -9); c.lineTo(0, 13); ink(c, 1.3);
+    c.strokeStyle = '#9cc9e6'; c.lineWidth = 0.9;
+    for (const y of [-5, -1, 3]) { c.beginPath(); c.moveTo(0, y); c.lineTo(4, y - 3); c.moveTo(0, y); c.lineTo(-4, y - 3); c.stroke(); }
+    c.restore();
+  },
+  magnet(c) {
+    badge(c, '#ffd0d6', '#d65b6c');
+    c.save(); c.translate(16, 17); c.rotate(-0.35);
+    c.beginPath(); c.arc(0, -2, 9, Math.PI, 0); c.lineTo(9, 8); c.lineTo(4, 8); c.lineTo(4, -2); c.arc(0, -2, 4, 0, Math.PI, true); c.lineTo(-4, 8); c.lineTo(-9, 8); c.closePath();
+    c.fillStyle = '#e63946'; c.fill(); ink(c, 1.4);
+    c.fillStyle = '#e8edf5';
+    for (const x of [-9, 4]) { c.beginPath(); c.rect(x, 4, 5, 4); c.fill(); ink(c, 1.2); }
+    c.restore();
+    c.strokeStyle = '#ffe14d'; c.lineWidth = 1.4; c.lineCap = 'round';
+    for (const [x, y, a] of [[25, 6, 0.5], [27, 11, 0], [6, 25, 0.4]]) { c.beginPath(); c.moveTo(x, y); c.lineTo(x + 3 * Math.cos(a), y + 3 * Math.sin(a)); c.stroke(); }
+  },
+  shield(c) {
+    badge(c, '#b8f2e6', '#2f9e8f');
+    c.beginPath(); c.moveTo(16, 5); c.quadraticCurveTo(22, 8, 26, 8); c.quadraticCurveTo(26, 21, 16, 28); c.quadraticCurveTo(6, 21, 6, 8); c.quadraticCurveTo(10, 8, 16, 5); c.closePath();
+    c.fillStyle = grad(c, 5, 28, '#7ad7ff', '#2a6fd6'); c.fill(); ink(c, 1.5);
+    c.beginPath(); c.moveTo(16, 8.5); c.quadraticCurveTo(20, 10.5, 22.5, 10.8); c.quadraticCurveTo(22, 19.5, 16, 24.5); c.closePath();
+    c.fillStyle = 'rgba(255,255,255,0.35)'; c.fill();
+    c.fillStyle = '#ffd34d'; c.beginPath();
+    for (let k = 0; k < 10; k++) { const r = k % 2 ? 2 : 4.5, a = -Math.PI / 2 + (k * Math.PI) / 5; c.lineTo(16 + r * Math.cos(a), 16 + r * Math.sin(a)); }
+    c.closePath(); c.fill(); ink(c, 1);
+  },
+  boots(c) {
+    badge(c, '#ffe7a8', '#e08e1b');
+    c.beginPath(); c.moveTo(11, 7); c.lineTo(18, 7); c.lineTo(18, 18); c.quadraticCurveTo(26, 18, 26, 23); c.lineTo(26, 25); c.lineTo(9, 25); c.lineTo(9, 20); c.quadraticCurveTo(11, 14, 11, 7); c.closePath();
+    c.fillStyle = grad(c, 7, 25, '#c0603a', '#8a3b22'); c.fill(); ink(c, 1.4);
+    c.fillStyle = '#f1faee'; c.beginPath(); c.roundRect(10.5, 7, 8, 3, 1.4); c.fill(); ink(c, 1);
+    c.fillStyle = '#3a2a2a'; c.beginPath(); c.roundRect(9, 23, 17, 2.6, 1.2); c.fill();
+    // little wing = speed
+    c.beginPath(); c.moveTo(18, 12); c.quadraticCurveTo(25, 8, 28, 10); c.quadraticCurveTo(24, 12, 25, 14); c.quadraticCurveTo(21, 14, 18, 15); c.closePath();
+    c.fillStyle = '#ffffff'; c.fill(); ink(c, 1.1);
+    c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 1.2;
+    for (const y of [17, 20]) { c.beginPath(); c.moveTo(2.5, y); c.lineTo(6.5, y); c.stroke(); }
+  },
+};
 
 /** @type {Record<string, (c: CanvasRenderingContext2D, w: number, h: number, i: number, n: number) => void>} */
 export const drawers = {
@@ -129,10 +202,10 @@ export const drawers = {
   'pet.cat': (c, w, h, i) => cat(c, i),
   'pet.dog': (c, w, h, i) => dog(c, i),
   'pet.drone': (c, w, h, i) => drone(c, i),
-  'trinket.doubleJump': (c) => { c.fillStyle = '#f1faee'; c.beginPath(); c.ellipse(16, 16, 6, 14, 0.6, 0, TAU); c.fill(); c.strokeStyle = '#a8dadc'; c.lineWidth = 2; c.beginPath(); c.moveTo(7, 27); c.lineTo(24, 5); c.stroke(); },
-  'trinket.magnet': (c) => { c.strokeStyle = '#e63946'; c.lineWidth = 7; c.beginPath(); c.arc(16, 14, 9, Math.PI, 0); c.lineTo(25, 26); c.moveTo(7, 14); c.lineTo(7, 26); c.stroke(); c.fillStyle = '#ddd'; c.fillRect(3, 24, 8, 5); c.fillRect(21, 24, 8, 5); },
-  'trinket.shield': (c) => { c.fillStyle = '#4cc9f0'; c.beginPath(); c.moveTo(16, 2); c.lineTo(29, 7); c.lineTo(26, 21); c.lineTo(16, 30); c.lineTo(6, 21); c.lineTo(3, 7); c.fill(); c.fillStyle = '#fff'; c.fillRect(14, 8, 4, 16); },
-  'trinket.speed': (c) => { c.fillStyle = '#ffb703'; c.beginPath(); c.moveTo(18, 1); c.lineTo(6, 18); c.lineTo(15, 18); c.lineTo(12, 31); c.lineTo(26, 12); c.lineTo(17, 12); c.fill(); },
+  'trinket.doubleJump': (c) => trinkets.feather(c),
+  'trinket.magnet': (c) => trinkets.magnet(c),
+  'trinket.shield': (c) => trinkets.shield(c),
+  'trinket.speed': (c) => trinkets.boots(c),
   'obj.spike': (c) => { for (let i = 0; i < 3; i++) { c.fillStyle = '#9aa0ab'; c.beginPath(); c.moveTo(i * 17, 40); c.lineTo(i * 17 + 9, 2); c.lineTo(i * 17 + 18, 40); c.fill(); c.fillStyle = '#d7dbe2'; c.beginPath(); c.moveTo(i * 17 + 9, 2); c.lineTo(i * 17 + 12, 40); c.lineTo(i * 17 + 9, 40); c.fill(); } },
   'obj.crate': (c) => { c.fillStyle = '#8b5a2b'; c.fillRect(0, 0, 56, 56); c.fillStyle = '#b07a43'; c.fillRect(4, 4, 48, 48); c.strokeStyle = '#8b5a2b'; c.lineWidth = 6; c.beginPath(); c.moveTo(6, 6); c.lineTo(50, 50); c.moveTo(50, 6); c.lineTo(6, 50); c.stroke(); },
   'obj.bar': (c, w, h) => { c.fillStyle = '#3d405b'; c.fillRect(30, 0, 12, h - 40); c.fillStyle = '#e07a5f'; rr(c, 0, h - 52, w, 44, 6); c.fillStyle = '#f2cc8f'; for (let i = 0; i < 4; i++) c.fillRect(6 + i * 17, h - 46, 9, 32); },

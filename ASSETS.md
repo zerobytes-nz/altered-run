@@ -121,8 +121,8 @@ manifest, the placeholder, and this file. Game code refers to assets **only by m
 
 | Key | File (under `public/assets/cc0/` or `public/assets/licensed/`) | Size · frames | Used for | Get it from |
 |---|---|---|---|---|
-| `bg.far` | `backgrounds/far.png` | 1024×440 · tiles horizontally | background: far mountains layer. Must tile horizontally; transparent sky. | **CC0** → `cc0/` [GameArt2D: Free Platformer Game Tileset](https://www.gameart2d.com/free-platformer-game-tileset.html) |
-| `bg.near` | `backgrounds/near.png` | 1024×320 · tiles horizontally | background: near hills layer. Must tile horizontally; transparent top. | **CC0** → `cc0/` [GameArt2D: Free Platformer Game Tileset](https://www.gameart2d.com/free-platformer-game-tileset.html) |
+| `bg.far` | `backgrounds/far.png` | 1024×440 · tiles horizontally | background: far mountains layer. Must tile horizontally; transparent sky. | **CC0** → `cc0/` [GameArt2D: Free Platformer Game Tileset](https://www.gameart2d.com/free-platformer-game-tileset.html)<br>files: `png/BG/BG.png rows 60–490 scaled to 1024 wide; the flat sky colour (221,248,255) keyed to transparent, clouds kept` |
+| `bg.near` | `backgrounds/near.png` | 1024×320 · tiles horizontally | background: near hills layer. Must tile horizontally; transparent top. | **CC0** → `cc0/` [GameArt2D: Free Platformer Game Tileset](https://www.gameart2d.com/free-platformer-game-tileset.html)<br>files: `png/Object Tree_2, Tree_3 and Bush (1)–(4) placed along a wrapping 1024 strip over a green band` |
 | `bg.ground` | `backgrounds/ground.png` | 256×160 · tiles horizontally | ground strip the hero runs on. Must tile horizontally; walkable surface at the top edge. | **CC0** → `cc0/` [GameArt2D: Free Platformer Game Tileset](https://www.gameart2d.com/free-platformer-game-tileset.html)<br>files: `Tiles 2.png (top) + 5.png (fill), combined` |
 
 ### HUD / UI

@@ -11,19 +11,20 @@ export class MenuScene extends Phaser.Scene {
   create(): void {
     const lo = currentLoadout();
     const profile = loadProfile();
-    this.add.rectangle(0, 0, GAME_W, GAME_H, 0x141c3a).setOrigin(0);
-    this.add.tileSprite(0, GROUND_Y - 40, GAME_W, 220, 'bg.far').setOrigin(0, 1).setTileScale(scaleOf('bg.far'));
+    this.add.graphics().fillGradientStyle(0x7fd0f2, 0x7fd0f2, 0xddf8ff, 0xddf8ff, 1).fillRect(0, 0, GAME_W, GROUND_Y);
+    this.add.tileSprite(0, GROUND_Y - 30, GAME_W, 220, 'bg.far').setOrigin(0, 1).setTileScale(scaleOf('bg.far'));
+    this.add.tileSprite(0, GROUND_Y + 4, GAME_W, 160, 'bg.near').setOrigin(0, 1).setTileScale(scaleOf('bg.near'));
     this.add.tileSprite(0, GROUND_Y - 6, GAME_W, GAME_H - GROUND_Y + 6, 'bg.ground').setOrigin(0).setTileScale(scaleOf('bg.ground'));
 
-    text(this, GAME_W / 2, 56, 'ALTERED RUN', 56, '#ffffff', '900').setOrigin(0.5);
-    text(this, GAME_W / 2, 104, 'Your NFTs become AWIs (Altered World Items)', 18, '#8fa3ff', '600').setOrigin(0.5);
+    text(this, GAME_W / 2, 56, 'ALTERED RUN', 56, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 10);
+    text(this, GAME_W / 2, 104, 'Your NFTs become AWIs (Altered World Items)', 18, '#ffffff', '700').setOrigin(0.5).setStroke('#2b2440', 5);
 
     const heroKey = `hero.${lo.skin.id}.run`;
     this.add.sprite(150, GROUND_Y, heroKey).setOrigin(0.5, 1).setScale(scaleOf(heroKey) * 1.4).play(heroKey);
     const petKey = `pet.${lo.pet.id}`;
     this.add.sprite(70, GROUND_Y + 2, petKey).setOrigin(0.5, 1).setScale(scaleOf(petKey)).play(petKey);
 
-    text(this, 320, 160, profile ? `YOUR AWIs · ${profile.label}` : 'GUEST LOADOUT', 14, '#8fa3ff').setOrigin(0, 0.5);
+    text(this, 320, 160, profile ? `YOUR AWIs · ${profile.label}` : 'GUEST LOADOUT', 14, '#ffffff').setOrigin(0, 0.5).setStroke('#2b2440', 4);
     slotRow(this, 320, 190, lo, 72, 14);
 
     button(this, GAME_W / 2 + 40, 330, '▶  RUN', () => this.play(), 260, 64, 0xf72585);
@@ -31,8 +32,8 @@ export class MenuScene extends Phaser.Scene {
       if (profile) this.scene.start('Loadout', { profile }); else this.scene.start('Connect');
     }, 260, 50, 0x4361ee);
     button(this, GAME_W / 2 + 40, 456, 'High scores', () => this.showScores(), 260, 44, 0x3a0ca3);
-    text(this, GAME_W - 16, GAME_H - 12, 'Tap = jump · Swipe → attack · Swipe ↓ slide', 14, '#c0c8ff', '600').setOrigin(1, 1);
-    text(this, 16, GAME_H - 12, `v0.1 · ${RUN.durationSec}s runs`, 12, '#6c7bbd', '600').setOrigin(0, 1);
+    text(this, GAME_W - 16, GAME_H - 12, 'Tap = jump · Swipe → attack · Swipe ↓ slide', 14, '#ffffff', '700').setOrigin(1, 1).setStroke('#2b2440', 4);
+    text(this, 16, GAME_H - 12, `v0.1 · ${RUN.durationSec}s runs`, 12, '#ffffff', '700').setOrigin(0, 1).setStroke('#2b2440', 3);
 
     muteButton(this, GAME_W - 34, 34);
     this.input.keyboard?.once('keydown-SPACE', () => this.play());

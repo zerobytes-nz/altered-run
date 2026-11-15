@@ -43,7 +43,7 @@
       "licenceUrl": "https://www.gameart2d.com/license.html"
     },
     "craftpix-weapons": {
-      "name": "craftpix.net — free weapon icon pack (any; e.g. RPG/fantasy weapon icons)",
+      "name": "craftpix.net \u2014 free weapon icon pack (any; e.g. RPG/fantasy weapon icons)",
       "url": "https://craftpix.net/freebies/",
       "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored).",
       "licenceUrl": "https://craftpix.net/file-licenses/"
@@ -55,19 +55,19 @@
       "licenceUrl": "https://craftpix.net/file-licenses/"
     },
     "craftpix-objects": {
-      "name": "craftpix.net — free platformer objects / traps / coins pack",
+      "name": "craftpix.net \u2014 free platformer objects / traps / coins pack",
       "url": "https://craftpix.net/freebies/",
       "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored).",
       "licenceUrl": "https://craftpix.net/file-licenses/"
     },
     "craftpix-enemies": {
-      "name": "craftpix.net — free slime / monster sprite pack",
+      "name": "craftpix.net \u2014 free slime / monster sprite pack",
       "url": "https://craftpix.net/freebies/",
       "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored).",
       "licenceUrl": "https://craftpix.net/file-licenses/"
     },
     "craftpix-gui": {
-      "name": "craftpix.net — free game GUI / icon pack",
+      "name": "craftpix.net \u2014 free game GUI / icon pack",
       "url": "https://craftpix.net/freebies/",
       "licence": "craftpix.net Freebies licence: free for commercial and personal projects, but the raw files must NOT be redistributed. Keep them in public/assets/licensed/ (gitignored).",
       "licenceUrl": "https://craftpix.net/file-licenses/"
@@ -129,7 +129,7 @@
       "frameHeight": 192,
       "frameCount": 10,
       "displayScale": 0.5,
-      "usedFor": "hero skin: knight, jump arc: frames 0–4 rising, 5–9 falling (frame picked from vertical speed)",
+      "usedFor": "hero skin: knight, jump arc: frames 0\u20134 rising, 5\u20139 falling (frame picked from vertical speed)",
       "source": "gameart2d-knight",
       "animation": {
         "frameRate": 0,
@@ -249,7 +249,7 @@
       "frameHeight": 192,
       "frameCount": 10,
       "displayScale": 0.5,
-      "usedFor": "hero skin: ninja, jump arc: frames 0–4 rising, 5–9 falling (frame picked from vertical speed)",
+      "usedFor": "hero skin: ninja, jump arc: frames 0\u20134 rising, 5\u20139 falling (frame picked from vertical speed)",
       "source": "gameart2d-ninja",
       "animation": {
         "frameRate": 0,
@@ -369,7 +369,7 @@
       "frameHeight": 192,
       "frameCount": 10,
       "displayScale": 0.5,
-      "usedFor": "hero skin: robot, jump arc: frames 0–4 rising, 5–9 falling (frame picked from vertical speed)",
+      "usedFor": "hero skin: robot, jump arc: frames 0\u20134 rising, 5\u20139 falling (frame picked from vertical speed)",
       "source": "gameart2d-robot",
       "animation": {
         "frameRate": 0,
@@ -682,7 +682,8 @@
       "displayScale": 0.5,
       "usedFor": "background: far mountains layer. Must tile horizontally; transparent sky.",
       "source": "gameart2d-tileset",
-      "tile": true
+      "tile": true,
+      "sourceFiles": "png/BG/BG.png rows 60\u2013490 scaled to 1024 wide; the flat sky colour (221,248,255) keyed to transparent, clouds kept"
     },
     {
       "key": "bg.near",
@@ -696,7 +697,8 @@
       "displayScale": 0.5,
       "usedFor": "background: near hills layer. Must tile horizontally; transparent top.",
       "source": "gameart2d-tileset",
-      "tile": true
+      "tile": true,
+      "sourceFiles": "png/Object Tree_2, Tree_3 and Bush (1)\u2013(4) placed along a wrapping 1024 strip over a green band"
     },
     {
       "key": "bg.ground",

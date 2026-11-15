@@ -119,9 +119,10 @@ export class RunScene extends Phaser.Scene {
   create(): void {
     // Sky + parallax
     const sky = this.add.graphics();
-    sky.fillGradientStyle(0x141c3a, 0x141c3a, 0x3a4a8a, 0x3a4a8a, 1);
+    // Day sky: the bottom colour matches GameArt2D's BG.png, whose own sky is keyed out of bg.far.
+    sky.fillGradientStyle(0x7fd0f2, 0x7fd0f2, 0xddf8ff, 0xddf8ff, 1);
     sky.fillRect(0, 0, GAME_W, GROUND_Y);
-    this.add.circle(560, 130, 38, 0xfff1c1, 0.85);
+    this.add.circle(560, 110, 34, 0xfff4b8, 0.95);
     this.bgFar = this.add.tileSprite(0, GROUND_Y - 30, GAME_W, 220, 'bg.far').setOrigin(0, 1).setTileScale(scaleOf('bg.far'));
     this.bgNear = this.add.tileSprite(0, GROUND_Y + 4, GAME_W, 160, 'bg.near').setOrigin(0, 1).setTileScale(scaleOf('bg.near'));
     this.ground = this.add.tileSprite(0, GROUND_Y - 6, GAME_W, GAME_H - GROUND_Y + 6, 'bg.ground').setOrigin(0).setTileScale(scaleOf('bg.ground'));
