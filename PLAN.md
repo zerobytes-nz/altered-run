@@ -33,19 +33,28 @@ Stack: **Phaser 3 + TypeScript + Vite**, static build, landscape, mobile-first.
 - Performance: a small bundle, object pooling for obstacles and coins, arcade physics, no per-frame allocations, `pixelArt`/`roundPixels` off, FPS meter in debug mode (`?debug`).
 - Landscape: the canvas uses Scale.FIT at 960×540. In portrait a "rotate your phone" overlay shows.
 
-### 2. TheoSwap integration (check in with the user before starting)
-- Create a **hidden** game and AWI configs through the theoswap MCP. Use dry run first and get approval for each write.
-  The config tree has one branch per slot. Each leaf has attributes such as `slot`, `skin`/`weapon`/`pet`/`trinket`, `damage`, `rarity`, and `name`.
-- User-code entry screen, then a call to `GET /api/public/user-items?apiKey=&userCode=`.
-- Loadout screen: pick which NFT-derived AWI fills each slot.
-- A reveal card for each NFT: "Your NFT became a **Fire Kunai Ninja**".
-- Attribute → asset mapping with a safe default for unknown values (e.g. an unknown `skin` falls back to knight).
-- Demo profiles (Whale / Collector / New player) through `set_test_items` and a test key, so it can be demoed without real wallets.
-- Cache the last good response in `localStorage` so the game works with bad signal.
-- **Open decisions for the user:**
-  - **apiKey proxy** (recommended): a tiny serverless function (e.g. a Cloudflare Worker) that holds the key so it never reaches the browser.
-  - **QR / deep-link sign-in** from the TheoSwap profile (`play.theoswap.io/?code=…`). This changes the TheoSwap repo and needs the user's OK.
-  - **NFT images for the reveal card:** `user-items` deletes `itemData.image`. `user-nfts` does not return the NFT image either (only contract, token_id, verified, and the config's `itemData`), and its CORS only allows `https://www.theoswap.io`, so a browser game can't call it. Options: (a) the proxy fetches token metadata/image itself, (b) a small TheoSwap change adds an `nftImage` field to `user-items`. Until then the reveal card shows the AWI art.
+### 2. TheoSwap integration (in progress)
+Done:
+- Hidden TheoSwap game **"Altered Run" (game 7)** with the draft config **"Altered Run AWIs" (config 15)**, set as the game's default.
+  4 groups (Hero, Weapon, Pet, Trinket), 13 AWIs. Each NFT rolls **Rarity** (21 slots: 11 Common / 6 Rare / 3 Epic / 1 Legendary,
+  about 52/29/14/5%; 21 is coprime with 4 so Rarity and Element roll independently) and **Element** (Fire / Ice / Shadow / Storm).
+- Connect screen: player code → `GET /api/public/user-items` **called directly from the game** (the developer's choice; the
+  endpoint allows any origin). `VITE_THEOSWAP_API_KEY` is therefore in the bundle: **test key only** until a proxy exists.
+- Reveal cards ("Your NFT became a Legendary Storm Kunai"), with ×N for identical AWIs.
+- Loadout screen: one AWI per slot; several in a slot are all listed; best rarity is picked by default; empty slots use the guest default.
+- Rarity effects: +10/20/35% range or coin radius; Legendary hero +1 heart; Legendary feather triple jump; Epic+ shield blocks 2 hits;
+  boots +5% score per tier. Element colours the attack slash and the card.
+- Profile + last good response cached in `localStorage`, used when the network fails.
+- Demo profiles Whale / Collector / New player: TheoSwap test codes AAAAAAAA / BBBBBBBB / CCCCCCCC with the test key,
+  bundled sample data without one.
+
+Still to do:
+- **Publish config 15** on the Developer page (user-items only returns published configs, even for test codes).
+- Put the game's **test API key** in `.env` and fill the test codes with `set_test_items` (dry run first).
+- Before using the **live** key: a small proxy (e.g. Cloudflare Worker) so the key leaves the bundle.
+- QR / deep-link sign-in from the TheoSwap profile (`?code=…`): needs a TheoSwap change and the user's OK.
+- NFT images on the reveal card: `user-items` deletes `itemData.image`; needs the proxy or a TheoSwap change. Cards show the AWI art for now.
+- Item images for config 15 (`upload_config_image`).
 
 ### 3. Polish
 - Sound effects and music (with a mute toggle), particles, screen shake, hit-stop.

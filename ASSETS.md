@@ -81,7 +81,7 @@ manifest, the placeholder, and this file. Game code refers to assets **only by m
 | Key | File (under `public/assets/cc0/` or `public/assets/licensed/`) | Size · frames | Used for | Get it from |
 |---|---|---|---|---|
 | `weapon.sword` | `weapons/sword.png` | 128×32 | weapon AWI: sword (held in hand, swings on attack). Handle on the left, blade pointing right. | → `licensed/` [craftpix.net — free weapon icon pack (any; e.g. RPG/fantasy weapon icons)](https://craftpix.net/freebies/) |
-| `weapon.kunai` | `weapons/kunai.png` | 96×32 | weapon AWI: kunai. Handle on the left, tip pointing right. | **CC0** → `cc0/` [GameArt2D: Ninja Adventure (free sprites)](https://www.gameart2d.com/ninja-adventure---free-sprites.html)<br>files: `Kunai.png` |
+| `weapon.kunai` | `weapons/kunai.png` | 96×32 | weapon AWI: kunai. Handle on the left, tip pointing right. | **CC0** → `cc0/` [GameArt2D: Ninja Adventure (free sprites)](https://www.gameart2d.com/ninja-adventure---free-sprites.html)<br>files: `Kunai.png, packed with --rotate 90` |
 | `weapon.hammer` | `weapons/hammer.png` | 112×64 | weapon AWI: hammer. Handle on the left, head on the right. | → `licensed/` [craftpix.net — free weapon icon pack (any; e.g. RPG/fantasy weapon icons)](https://craftpix.net/freebies/) |
 
 ### Pets (AWI slot: pet)

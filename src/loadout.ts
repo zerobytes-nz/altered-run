@@ -1,5 +1,7 @@
-// AWI (Altered World Item) slot model. Milestone 1 uses the guest loadout; milestone 2
-// fills these from TheoSwap `user-items` and maps unknown attribute values to defaults.
+// AWI (Altered World Item) slot model. Guests get the default loadout; players who connect
+// TheoSwap get one built from their NFTs' AWIs (see awi.ts → loadoutFrom).
+import type { AWI } from './awi';
+import { RUN } from './config';
 
 export type SlotId = 'skin' | 'weapon' | 'pet' | 'trinket';
 
@@ -45,6 +47,9 @@ export interface Loadout {
   weapon: WeaponDef;
   pet: PetDef;
   trinket: TrinketDef;
+  hearts: number;
+  /** The AWIs behind each slot; missing = guest default. */
+  awis: Partial<Record<SlotId, AWI>>;
 }
 
 export const DEFAULTS = { skin: 'knight', weapon: 'sword', pet: 'cat', trinket: 'doubleJump' } as const;
@@ -56,6 +61,8 @@ export function resolveLoadout(ids: Partial<Record<SlotId, string>> = {}): Loado
     weapon: WEAPONS[ids.weapon ?? ''] ?? WEAPONS[DEFAULTS.weapon],
     pet: PETS[ids.pet ?? ''] ?? PETS[DEFAULTS.pet],
     trinket: TRINKETS[ids.trinket ?? ''] ?? TRINKETS[DEFAULTS.trinket],
+    hearts: RUN.hearts,
+    awis: {},
   };
 }
 

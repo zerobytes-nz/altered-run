@@ -4,6 +4,9 @@ import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { RunScene } from './scenes/RunScene';
 import { GameOverScene } from './scenes/GameOverScene';
+import { ConnectScene } from './scenes/ConnectScene';
+import { RevealScene } from './scenes/RevealScene';
+import { LoadoutScene } from './scenes/LoadoutScene';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -16,9 +19,10 @@ const game = new Phaser.Game({
   fps: { target: 60, smoothStep: true },
   input: { activePointers: 2 },
   disableContextMenu: true,
+  dom: { createContainer: true }, // the user-code text field on the Connect screen
   banner: false,
   audio: { noAudio: true }, // sound arrives in milestone 3
-  scene: [BootScene, MenuScene, RunScene, GameOverScene],
+  scene: [BootScene, MenuScene, ConnectScene, RevealScene, LoadoutScene, RunScene, GameOverScene],
 });
 
 if (DEBUG) (window as unknown as { __game: Phaser.Game }).__game = game;

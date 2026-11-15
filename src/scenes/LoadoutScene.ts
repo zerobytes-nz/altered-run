@@ -1,0 +1,88 @@
+import Phaser from 'phaser';
+import { GAME_W, GAME_H } from '../config';
+import { ensureKeys, ensureLoaded, iconKey } from '../assets';
+import { ELEMENT_ICON, RARITY_COLOR, SLOTS, SLOT_LABEL, awiTitle, hex, loadoutFrom, nameOf, perkText, type AWI } from '../awi';
+import { DEFAULTS, type SlotId } from '../loadout';
+import { forgetProfile, saveProfile, type Profile } from '../theoswap';
+import { button, text } from '../ui';
+
+const TILE = 70, GAP = 10, ROW_H = 96, TOP = 82, LEFT = 150;
+
+/** Pick one AWI per slot. Doubles in a slot are all listed; identical AWIs show ×N; empty slots use the default. */
+export class LoadoutScene extends Phaser.Scene {
+  private profile!: Profile;
+  private rows: Phaser.GameObjects.Container[] = [];
+
+  constructor() { super('Loadout'); }
+
+  init(data: { profile: Profile }): void { this.profile = data.profile; this.rows = []; }
+
+  create(): void {
+    this.add.rectangle(0, 0, GAME_W, GAME_H, 0x141c3a).setOrigin(0);
+    text(this, 24, 22, 'YOUR AWIs', 30, '#ffffff', '900');
+    text(this, 24, 58, `${this.profile.label} · tap an AWI to equip it`, 15, '#8fa3ff', '600');
+
+    const keys = [...new Set([...this.profile.awis.map((a) => iconKey(a.slot, a.id)), ...SLOTS.map((s) => iconKey(s, DEFAULTS[s]))])];
+    ensureKeys(this, keys, () => this.drawRows());
+
+    button(this, GAME_W - 130, GAME_H - 46, '▶  RUN', () => this.play(), 220, 60, 0xf72585);
+    button(this, GAME_W - 330, GAME_H - 46, 'Cards', () => this.scene.start('Reveal', { profile: this.profile }), 140, 48, 0x3a0ca3);
+    button(this, 100, GAME_H - 46, '← Menu', () => this.scene.start('Menu'), 150, 48, 0x1b2550);
+    button(this, 270, GAME_H - 46, 'Disconnect', () => { forgetProfile(); this.scene.start('Menu'); }, 160, 48, 0x1b2550);
+  }
+
+  private drawRows(): void {
+    this.rows.forEach((r) => r.destroy());
+    this.rows = SLOTS.map((slot, i) => this.drawRow(slot, TOP + i * ROW_H));
+  }
+
+  private drawRow(slot: SlotId, y: number): Phaser.GameObjects.Container {
+    const c = this.add.container(0, y);
+    c.add(text(this, 24, TILE / 2, SLOT_LABEL[slot], 15, '#8fa3ff').setOrigin(0, 0.5));
+    const options = this.profile.awis.filter((a) => a.slot === slot);
+    const selected = options.find((a) => a.key === this.profile.selection[slot]);
+    const maxTiles = Math.floor((GAME_W - LEFT - 300) / (TILE + GAP));
+
+    if (!options.length) {
+      c.add(this.tile(LEFT, iconKey(slot, DEFAULTS[slot]), 0x4a557f, true));
+      c.add(text(this, LEFT + TILE + 16, TILE / 2 - 12, `Default ${nameOf(slot, DEFAULTS[slot])}`, 18, '#c0c8ff'));
+      c.add(text(this, LEFT + TILE + 16, TILE / 2 + 12, 'No NFT for this slot yet', 14, '#6c7bbd', '600'));
+      return c;
+    }
+    options.slice(0, maxTiles).forEach((a, j) => {
+      const x = LEFT + j * (TILE + GAP);
+      const t = this.tile(x, iconKey(slot, a.id), RARITY_COLOR[a.rarity], a === selected, a);
+      t.list[0].setInteractive({ useHandCursor: true }).on('pointerup', () => this.select(slot, a));
+      c.add(t);
+    });
+    if (options.length > maxTiles) c.add(text(this, LEFT + maxTiles * (TILE + GAP), TILE / 2, `+${options.length - maxTiles}`, 18, '#c0c8ff').setOrigin(0, 0.5));
+    if (selected) {
+      const x = GAME_W - 280;
+      c.add(text(this, x, TILE / 2 - 13, `${ELEMENT_ICON[selected.element]} ${awiTitle(selected)}`, 18, hex(RARITY_COLOR[selected.rarity])).setOrigin(0, 0.5));
+      c.add(text(this, x, TILE / 2 + 13, perkText(selected), 14, '#c0c8ff', '600').setOrigin(0, 0.5));
+    }
+    return c;
+  }
+
+  private tile(x: number, key: string, color: number, on: boolean, a?: AWI): Phaser.GameObjects.Container {
+    const t = this.add.container(x + TILE / 2, TILE / 2);
+    const bg = this.add.rectangle(0, 0, TILE, TILE, on ? 0x2a3a7a : 0x1b2550).setStrokeStyle(on ? 4 : 2, color, on ? 1 : 0.6);
+    const icon = this.add.image(0, 0, key, 0);
+    icon.setScale(Math.min((TILE * 0.8) / icon.frame.width, (TILE * 0.8) / icon.frame.height));
+    if (!on) icon.setAlpha(0.7);
+    t.add([bg, icon]);
+    if (a && a.count > 1) t.add(text(this, TILE / 2 - 4, TILE / 2 - 2, `×${a.count}`, 14, '#ffffff', '900').setOrigin(1, 1).setStroke('#0b1020', 4));
+    return t;
+  }
+
+  private select(slot: SlotId, a: AWI): void {
+    this.profile.selection = { ...this.profile.selection, [slot]: a.key };
+    saveProfile(this.profile);
+    this.drawRows();
+  }
+
+  private play(): void {
+    const lo = loadoutFrom(this.profile.awis, this.profile.selection);
+    ensureLoaded(this, lo, () => this.scene.start('Run', { loadout: lo }));
+  }
+}

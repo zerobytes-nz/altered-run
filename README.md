@@ -30,11 +30,15 @@ A fresh clone runs on the committed art: **CC0 art from GameArt2D** (`public/ass
 
 `assets.manifest.json` is the single source of truth for every image and sound. Game code only uses manifest keys.
 
-## Secrets
+## TheoSwap and secrets
 
-Copy `.env.example` to `.env` (gitignored). The TheoSwap API key is **never** put in the game bundle:
-Vite inlines every `VITE_*` variable into the browser build, so the key belongs only in the proxy
-(milestone 2). `check-assets` rejects key-like `VITE_*` names and hard-coded `apiKey` values.
+Players tap **Connect TheoSwap**, enter the player code from their TheoSwap profile, and their NFTs
+become AWIs (reveal cards, then a loadout screen). Without a code, three demo players work offline.
+
+Copy `.env.example` to `.env` (gitignored) and set `VITE_THEOSWAP_API_KEY`. The game calls TheoSwap
+directly, so Vite puts this key **in the browser build**: use the game's **test** key until a proxy is
+in place. `check-assets` allows only that one `VITE_*KEY` name and still rejects other key-like
+`VITE_*` names and hard-coded `apiKey` values.
 
 ## Licence
 

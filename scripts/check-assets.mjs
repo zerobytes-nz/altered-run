@@ -60,8 +60,11 @@ for (const r of resolveAssets(m)) {
 
 // Secrets: the TheoSwap apiKey must never reach client code. Vite inlines any VITE_* var
 // into the bundle, so key-like VITE_ names are banned, as are literal apiKey values.
+// One deliberate exception: VITE_THEOSWAP_API_KEY. The developer chose to call user-items
+// directly from the game (test key only until a proxy exists), so that name is allowed.
+// Its VALUE still only lives in the gitignored .env, and literal key values are still caught below.
 const SECRET_PATTERNS = [
-  [/VITE_[A-Z0-9_]*(KEY|SECRET|TOKEN|PASSWORD)\b/, 'VITE_* variables are bundled into the browser build; never put keys in them'],
+  [/VITE_(?!THEOSWAP_API_KEY\b)[A-Z0-9_]*(KEY|SECRET|TOKEN|PASSWORD)\b/, 'VITE_* variables are bundled into the browser build; never put keys in them'],
   [/apiKey\s*[:=]\s*['"`][A-Za-z0-9_-]{8,}['"`]/, 'hard-coded apiKey value'],
   [/[?&]apiKey=[A-Za-z0-9_-]{8,}/, 'apiKey value in a URL'],
 ];

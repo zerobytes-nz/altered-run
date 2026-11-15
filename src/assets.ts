@@ -72,6 +72,18 @@ function createAnims(scene: Phaser.Scene): void {
   }
 }
 
+/** Load specific keys (e.g. the idle sheets of every hero a player owns, for their cards), then run `done`. */
+export function ensureKeys(scene: Phaser.Scene, keys: string[], done: () => void): void {
+  const want = new Set(keys);
+  if (queue(scene, (k) => want.has(k)) === 0) { createAnims(scene); done(); return; }
+  scene.load.once(Phaser.Loader.Events.COMPLETE, () => { createAnims(scene); done(); });
+  scene.load.start();
+}
+
+/** Texture key that pictures an AWI slot item: the hero's idle sheet, or the item's own image. */
+export const iconKey = (slot: 'skin' | 'weapon' | 'pet' | 'trinket', id: string): string =>
+  slot === 'skin' ? `hero.${id}.idle` : `${slot}.${id}`;
+
 /** Call from a scene's preload(). */
 export function preloadFor(scene: Phaser.Scene, lo: Loadout): void {
   queue(scene, neededFor(lo));

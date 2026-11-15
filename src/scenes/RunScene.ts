@@ -108,7 +108,7 @@ export class RunScene extends Phaser.Scene {
     this.jumpBufferUntil = 0; this.slideQueued = false; this.slideUntil = 0; this.attackUntil = 0; this.attackReadyAt = 0;
     this.invulnUntil = 0; this.visual = ''; this.dead = false; this.ended = false;
     this.now = 0; this.elapsed = 0; this.speed = RUN.speedStart; this.distance = 0;
-    this.coinCount = 0; this.kills = 0; this.crates = 0; this.hearts = RUN.hearts; this.shield = this.lo.trinket.shield ?? 0;
+    this.coinCount = 0; this.kills = 0; this.crates = 0; this.hearts = this.lo.hearts; this.shield = this.lo.trinket.shield ?? 0;
     this.hudTick = 0; this.lastScoreShown = -1; this.petReadyAt = 0;
   }
 
@@ -161,14 +161,14 @@ export class RunScene extends Phaser.Scene {
 
   private buildHud(): void {
     const hud = this.add.container(0, 0).setDepth(20);
-    for (let i = 0; i < RUN.hearts; i++) {
+    for (let i = 0; i < this.lo.hearts; i++) {
       const h = this.add.image(26 + i * 32, 26, 'ui.heart').setScale(scaleOf('ui.heart'));
       this.heartImgs.push(h); hud.add(h);
     }
     this.scoreText = text(this, 14, 46, '0', 30, '#ffffff', '900').setStroke('#0b1020', 5);
     this.coinText = text(this, 16, 86, '● 0', 18, '#ffd34d', '800').setStroke('#0b1020', 4);
     const best = bestScore();
-    const bestT = text(this, 120, 18, best ? `BEST ${best}` : '', 13, '#c0c8ff', '700').setStroke('#0b1020', 3);
+    const bestT = text(this, 24 + this.lo.hearts * 32, 18, best ? `BEST ${best}` : '', 13, '#c0c8ff', '700').setStroke('#0b1020', 3);
     // Run progress → finish flag
     const pw = 220, px = GAME_W / 2 - pw / 2;
     const track = this.add.rectangle(px, 20, pw, 10, 0x0b1020, 0.6).setOrigin(0, 0.5).setStrokeStyle(2, 0xffffff, 0.35);

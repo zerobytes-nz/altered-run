@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import type { Loadout } from './loadout';
+import type { Loadout, SlotId } from './loadout';
+import { RARITY_COLOR } from './awi';
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
@@ -20,20 +21,23 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
 
 /** The four AWI slots (skin, weapon, pet, trinket) shown as a row. */
 export function slotRow(scene: Phaser.Scene, x: number, y: number, lo: Loadout, size = 64, gap = 10, labels = true, labelSize = 13) {
-  const entries: [string, string, string][] = [
-    ['HERO', `hero.${lo.skin.id}.idle`, lo.skin.name],
-    ['WEAPON', `weapon.${lo.weapon.id}`, lo.weapon.name],
-    ['PET', `pet.${lo.pet.id}`, lo.pet.name],
-    ['TRINKET', `trinket.${lo.trinket.id}`, lo.trinket.name],
+  const entries: [string, string, string, SlotId][] = [
+    ['HERO', `hero.${lo.skin.id}.idle`, lo.skin.name, 'skin'],
+    ['WEAPON', `weapon.${lo.weapon.id}`, lo.weapon.name, 'weapon'],
+    ['PET', `pet.${lo.pet.id}`, lo.pet.name, 'pet'],
+    ['TRINKET', `trinket.${lo.trinket.id}`, lo.trinket.name, 'trinket'],
   ];
   const c = scene.add.container(x, y);
-  entries.forEach(([slot, frame, name], i) => {
+  entries.forEach(([slot, frame, name, slotId], i) => {
     const cx = i * (size + gap) + size / 2;
     const bg = scene.add.image(cx, size / 2, 'ui.slot').setDisplaySize(size, size);
+
     const icon = scene.add.image(cx, size / 2, frame, 0);
     const f = icon.frame;
     icon.setScale(Math.min((size * 0.78) / f.width, (size * 0.78) / f.height));
     c.add([bg, icon]);
+    const awi = lo.awis[slotId]; // from an NFT: rarity-coloured frame
+    if (awi) c.add(scene.add.rectangle(cx, size / 2, size - 2, size - 2).setStrokeStyle(3, RARITY_COLOR[awi.rarity]));
     if (labels) {
       c.add(text(scene, cx, size + 3, name, labelSize, '#e8ecff').setOrigin(0.5, 0).setStroke('#0b1020', 3));
       c.add(text(scene, cx, -3, slot, Math.max(9, labelSize - 3), '#8fa3ff').setOrigin(0.5, 1).setStroke('#0b1020', 3));

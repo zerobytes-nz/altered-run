@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
 import { preloadFor } from '../assets';
-import { guestLoadout } from '../loadout';
+import { currentLoadout } from '../theoswap';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
@@ -12,7 +12,7 @@ export class BootScene extends Phaser.Scene {
     const bar = this.add.rectangle(x, y, 1, 12, 0x8fa3ff).setOrigin(0, 0.5);
     this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => { bar.width = Math.max(1, w * p); });
     document.getElementById('loading')?.remove();
-    preloadFor(this, guestLoadout());
+    preloadFor(this, currentLoadout());
   }
 
   create(): void {

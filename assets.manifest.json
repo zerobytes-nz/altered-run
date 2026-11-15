@@ -464,7 +464,7 @@
       "displayScale": 0.5,
       "usedFor": "weapon AWI: kunai. Handle on the left, tip pointing right.",
       "source": "gameart2d-ninja",
-      "sourceFiles": "Kunai.png"
+      "sourceFiles": "Kunai.png, packed with --rotate 90"
     },
     {
       "key": "weapon.hammer",
