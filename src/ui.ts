@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Loadout, SlotId } from './loadout';
 import { RARITY_COLOR } from './awi';
+import { isMuted, onMuteChange, sfx, toggleMute } from './systems/audio';
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
@@ -15,7 +16,20 @@ export function button(scene: Phaser.Scene, x: number, y: number, label: string,
   bg.setInteractive({ useHandCursor: true })
     .on('pointerdown', () => c.setScale(0.96))
     .on('pointerout', () => c.setScale(1))
-    .on('pointerup', () => { c.setScale(1); onTap(); });
+    .on('pointerup', () => { c.setScale(1); sfx.tap(); onTap(); });
+  return c;
+}
+
+/** Round speaker button that toggles sound (also the M key). Stays in sync across scenes. */
+export function muteButton(scene: Phaser.Scene, x: number, y: number, r = 22) {
+  const bg = scene.add.circle(0, 0, r, 0x0b1020, 0.55).setStrokeStyle(2, 0xffffff, 0.35);
+  const t = text(scene, 0, 1, '', Math.round(r * 0.95), '#ffffff').setOrigin(0.5);
+  const c = scene.add.container(x, y, [bg, t]).setSize(r * 2, r * 2);
+  const draw = (m: boolean) => t.setText(m ? '🔇' : '🔊');
+  draw(isMuted());
+  const off = onMuteChange(draw);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, off);
+  bg.setInteractive({ useHandCursor: true }).on('pointerup', () => { toggleMute(); sfx.tap(); });
   return c;
 }
 

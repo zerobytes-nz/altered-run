@@ -24,6 +24,8 @@ const licensedDir = `public/${m.roots.licensed}/`;
 const placeholderDir = `public/${m.roots.placeholder}/`;
 const cc0Dir = `public/${m.roots.cc0}/`;
 const allowedPlaceholders = new Set(m.assets.map((a) => placeholderDir + a.path));
+// PWA icons drawn by scripts/gen-pwa-icons.mjs from cc0/ + placeholder/ art only.
+const PWA_ICONS = new Set(['apple-touch-icon.png', 'favicon-64.png', 'icon-192.png', 'icon-512.png', 'maskable-512.png'].map((f) => `public/icons/${f}`));
 const assetByCc0Path = new Map(m.assets.map((a) => [cc0Dir + a.path, a]));
 
 for (const f of tracked) {
@@ -37,7 +39,7 @@ for (const f of tracked) {
     else if (!isCc0(m, a)) errors.push(`NON-CC0 FILE IN GIT: ${f}\n      ${a.key} comes from "${a.source}", which is not marked "cc0": true in assets.manifest.json. Move it to public/${m.roots.licensed}/ and:  git rm --cached "${f}"`);
     continue;
   }
-  if (MEDIA_EXT.test(f) && !allowedPlaceholders.has(f)) {
+  if (MEDIA_EXT.test(f) && !allowedPlaceholders.has(f) && !PWA_ICONS.has(f)) {
     errors.push(`Unlisted media file in git: ${f}\n      Only placeholders listed in assets.manifest.json may be committed. Add a manifest entry, or put CC0 art in public/assets/cc0/, or remove it.`);
   }
   const base = path.basename(f);

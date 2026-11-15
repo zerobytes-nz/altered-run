@@ -25,7 +25,7 @@ Stack: **Phaser 3 + TypeScript + Vite**, static build, landscape, mobile-first.
 
 ## Milestones
 
-### 1. Core runner on a phone (this milestone)
+### 1. Core runner on a phone (done)
 - Guest mode with default AWIs (knight / sword / cat / double jump).
 - Touch controls (tap / swipe) plus a keyboard fallback (Space/Up, Right/X, Down).
 - Placeholder art from the asset manifest, swappable file by file for licensed art (see *Art and open source*).
@@ -33,33 +33,40 @@ Stack: **Phaser 3 + TypeScript + Vite**, static build, landscape, mobile-first.
 - Performance: a small bundle, object pooling for obstacles and coins, arcade physics, no per-frame allocations, `pixelArt`/`roundPixels` off, FPS meter in debug mode (`?debug`).
 - Landscape: the canvas uses Scale.FIT at 960×540. In portrait a "rotate your phone" overlay shows.
 
-### 2. TheoSwap integration (in progress)
-Done:
-- Hidden TheoSwap game **"Altered Run" (game 7)** with the draft config **"Altered Run AWIs" (config 15)**, set as the game's default.
-  4 groups (Hero, Weapon, Pet, Trinket), 13 AWIs. Each NFT rolls **Rarity** (21 slots: 11 Common / 6 Rare / 3 Epic / 1 Legendary,
+### 2. TheoSwap integration (done)
+- Hidden TheoSwap game **"Altered Run" (game 7)** with the **published** config **"Altered Run AWIs" (config 15)**, set as the game's default.
+  4 groups (Hero, Weapon, Pet, Trinket), 13 AWIs, each with an item image. Each NFT rolls **Rarity** (21 slots: 11 Common / 6 Rare / 3 Epic / 1 Legendary,
   about 52/29/14/5%; 21 is coprime with 4 so Rarity and Element roll independently) and **Element** (Fire / Ice / Shadow / Storm).
+- Game icon, banner, genres and platforms set on TheoSwap.
 - Connect screen: player code → `GET /api/public/user-items` **called directly from the game** (the developer's choice; the
   endpoint allows any origin). `VITE_THEOSWAP_API_KEY` is therefore in the bundle: **test key only** until a proxy exists.
+- Deep link: `/?userCode=CODE` connects straight away and removes the code from the URL. Set the game website on TheoSwap to
+  `https://<host>/?userCode=$USER_CODE` once it is hosted.
 - Reveal cards ("Your NFT became a Legendary Storm Kunai"), with ×N for identical AWIs.
 - Loadout screen: one AWI per slot; several in a slot are all listed; best rarity is picked by default; empty slots use the guest default.
 - Rarity effects: +10/20/35% range or coin radius; Legendary hero +1 heart; Legendary feather triple jump; Epic+ shield blocks 2 hits;
   boots +5% score per tier. Element colours the attack slash and the card.
 - Profile + last good response cached in `localStorage`, used when the network fails.
-- Demo profiles Whale / Collector / New player: TheoSwap test codes AAAAAAAA / BBBBBBBB / CCCCCCCC with the test key,
-  bundled sample data without one.
+- Demo profiles Whale / Collector / New player: TheoSwap test codes AAAAAAAA / BBBBBBBB / CCCCCCCC (tested against the live API
+  with the test key), bundled sample data without a key.
+
+Left open (needs a decision or a TheoSwap change):
+- Before using the **live** key: a small proxy (e.g. Cloudflare Worker) so the key leaves the bundle.
+- NFT images on the reveal card: `user-items` deletes `itemData.image`; needs the proxy or a TheoSwap change. Cards show the AWI art for now.
+
+### 3. Polish (in progress)
+Done:
+- Sound effects and music, synthesized with Web Audio (no audio files to license). Coin pickups climb in pitch; reveal
+  cards play a bigger fanfare for rarer AWIs. Mute button on the menu, run and results screens (and the M key), remembered.
+- Particles: element-coloured slash sparks, jump/slide/landing dust, coin and hit bursts. Screen shake and a short
+  hit-stop (45 ms smash, 60 ms shield, 90 ms hurt) on impacts. Taps on on-screen buttons no longer count as jumps.
+- PWA: `manifest.webmanifest` (fullscreen, landscape), icons drawn by `npm run pwa:icons`, and a build-time service worker
+  that precaches the shell and all resolved art (tested offline with `npm run preview`).
 
 Still to do:
-- **Publish config 15** on the Developer page (user-items only returns published configs, even for test codes).
-- Put the game's **test API key** in `.env` and fill the test codes with `set_test_items` (dry run first).
-- Before using the **live** key: a small proxy (e.g. Cloudflare Worker) so the key leaves the bundle.
-- QR / deep-link sign-in from the TheoSwap profile (`?code=…`): needs a TheoSwap change and the user's OK.
-- NFT images on the reveal card: `user-items` deletes `itemData.image`; needs the proxy or a TheoSwap change. Cards show the AWI art for now.
-- Item images for config 15 (`upload_config_image`).
-
-### 3. Polish
-- Sound effects and music (with a mute toggle), particles, screen shake, hit-stop.
-- PWA manifest, icons, and a service worker for offline play.
-- Deploy as a static site (e.g. `play.theoswap.io`).
+- Deploy as a static site (e.g. `play.theoswap.io`): needs the developer's choice of host.
+- Real art for the sword, hammer, drone, slime, coins, spikes, flag, trinkets and UI, plus background layers.
+- Smaller hero PNGs (about 1 MB per skin now).
 
 ### 4. Optional
 - Capacitor app build (Android/iOS).

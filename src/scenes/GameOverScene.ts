@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
 import type { Loadout } from '../loadout';
 import { loadScores, submitScore } from '../systems/highscores';
-import { button, text } from '../ui';
+import { button, muteButton, text } from '../ui';
 
 export interface RunResult {
   score: number; coins: number; kills: number; distance: number; finished: boolean; timeSec: number; loadout: Loadout;
@@ -28,6 +28,7 @@ export class GameOverScene extends Phaser.Scene {
     retry.setAlpha(0.4); menu.setAlpha(0.4);
     this.input.enabled = false;
     this.time.delayedCall(650, () => { this.input.enabled = true; retry.setAlpha(1); menu.setAlpha(1); });
+    muteButton(this, GAME_W - 34, 34);
     this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('Run', { loadout: r.loadout }));
   }
 }

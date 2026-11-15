@@ -4,7 +4,8 @@ import { asset, scaleOf, heroHoldsWeapon } from '../assets';
 import { guestLoadout, type Loadout } from '../loadout';
 import { GestureInput, type Gesture } from '../systems/input';
 import { bestScore } from '../systems/highscores';
-import { slotRow, text } from '../ui';
+import { muteButton, slotRow, text } from '../ui';
+import { sfx, startMusic, stopMusic } from '../systems/audio';
 import type { RunResult } from './GameOverScene';
 
 type Kind = 'spike' | 'crate' | 'bar' | 'slime' | 'flag';
@@ -71,6 +72,7 @@ export class RunScene extends Phaser.Scene {
   private jumpFrames = 1;
   private dead = false;
   private ended = false;
+  private hitStopUntil = 0; // scene time (ms): freeze the world briefly on impacts
 
   // pet
   private petX = 0; private petY = 0; private petReadyAt = 0;
@@ -96,6 +98,8 @@ export class RunScene extends Phaser.Scene {
   private lastScoreShown = -1;
   private coinFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private hitFx!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private slashFx!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private dustFx!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor() { super('Run'); }
 
@@ -106,7 +110,7 @@ export class RunScene extends Phaser.Scene {
     this.nextSpawn = 2.2 * RUN.speedStart; this.finishing = false;
     this.vy = 0; this.onGround = true; this.lastGroundAt = 0; this.airJumps = this.lo.trinket.airJumps ?? 0;
     this.jumpBufferUntil = 0; this.slideQueued = false; this.slideUntil = 0; this.attackUntil = 0; this.attackReadyAt = 0;
-    this.invulnUntil = 0; this.visual = ''; this.dead = false; this.ended = false;
+    this.invulnUntil = 0; this.visual = ''; this.dead = false; this.ended = false; this.hitStopUntil = 0;
     this.now = 0; this.elapsed = 0; this.speed = RUN.speedStart; this.distance = 0;
     this.coinCount = 0; this.kills = 0; this.crates = 0; this.hearts = this.lo.hearts; this.shield = this.lo.trinket.shield ?? 0;
     this.hudTick = 0; this.lastScoreShown = -1; this.petReadyAt = 0;
@@ -146,6 +150,14 @@ export class RunScene extends Phaser.Scene {
       lifespan: 520, speed: { min: 120, max: 360 }, gravityY: 900, scale: { start: 2 * pxS, end: 0.5 * pxS },
       tint: [0xffffff, 0xb07a43, 0x80b918], emitting: false,
     }).setDepth(7);
+    this.slashFx = this.add.particles(0, 0, 'fx.dot', {
+      lifespan: 260, speedX: { min: 160, max: 420 }, speedY: { min: -90, max: 90 }, scale: { start: 0.8 * dotS, end: 0 },
+      tint: this.lo.weapon.tint, blendMode: 'ADD', emitting: false,
+    }).setDepth(7);
+    this.dustFx = this.add.particles(0, 0, 'fx.dot', {
+      lifespan: 340, speedX: { min: -140, max: 60 }, speedY: { min: -70, max: -10 }, scale: { start: 0.9 * dotS, end: 0 },
+      tint: 0xd8c8a8, alpha: { start: 0.7, end: 0 }, emitting: false,
+    }).setDepth(4);
 
     // Pre-warm pools so the first obstacles don't allocate mid-run.
     for (let i = 0; i < 12; i++) this.getOb('spike');
@@ -155,7 +167,12 @@ export class RunScene extends Phaser.Scene {
 
     this.buildHud();
     this.gestures = new GestureInput(this);
+    startMusic();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, stopMusic);
   }
+
+  /** Freeze the world for a few frames so hits feel heavy. Input is kept and handled after. */
+  private hitStop(ms: number): void { this.hitStopUntil = Math.max(this.hitStopUntil, this.time.now + ms); }
 
   // ───────────────────────────── HUD ─────────────────────────────
 
@@ -179,6 +196,7 @@ export class RunScene extends Phaser.Scene {
     const slots = slotRow(this, GAME_W - (4 * 52 + 3 * 14) - 12, 22, this.lo, 52, 14, true, 12);
     slots.setAlpha(0.92);
     hud.add(slots);
+    muteButton(this, GAME_W - 30, GAME_H - 30, 18).setDepth(20).setAlpha(0.8);
     if (DEBUG) this.fpsText = text(this, 14, GAME_H - 28, '', 14, '#80ffdb', '700').setDepth(30);
   }
 
@@ -282,17 +300,19 @@ export class RunScene extends Phaser.Scene {
     if (grounded) {
       this.vy = -RUN.jumpVelocity; this.onGround = false; this.lastGroundAt = -1e9;
       this.slideUntil = 0; this.slideQueued = false;
-      this.hitFx.explode(4, this.hero.x, GROUND_Y);
+      this.dustFx.explode(6, this.hero.x, this.hero.y);
+      sfx.jump();
     } else if (this.airJumps > 0) {
       this.airJumps--; this.vy = -RUN.airJumpVelocity;
       this.coinFx.explode(6, this.hero.x, this.hero.y);
+      sfx.airJump();
     } else {
       this.jumpBufferUntil = this.now + JUMP_BUFFER_MS;
     }
   }
 
   private trySlide(): void {
-    if (this.onGround) { this.slideUntil = this.now + RUN.slideMs; this.attackUntil = 0; }
+    if (this.onGround) { this.slideUntil = this.now + RUN.slideMs; this.attackUntil = 0; this.dustFx.explode(8, this.hero.x + 10, this.hero.y); sfx.slide(); }
     else { this.vy = Math.max(this.vy, RUN.fastFallVelocity); this.slideQueued = true; }
   }
 
@@ -304,6 +324,8 @@ export class RunScene extends Phaser.Scene {
     const s = this.slash;
     s.setVisible(true).setAlpha(1).setTint(this.lo.weapon.tint).setPosition(this.hero.x + 4, this.hero.y - 48).setScale(this.lo.weapon.range / 96, 1);
     this.tweens.add({ targets: s, alpha: 0, duration: RUN.attackMs, onComplete: () => s.setVisible(false) });
+    this.slashFx.explode(10, this.hero.x + 20, this.hero.y - 48);
+    sfx.slash();
   }
 
   private hurt(): void {
@@ -312,6 +334,7 @@ export class RunScene extends Phaser.Scene {
       this.shield--; this.shieldRing.setVisible(this.shield > 0);
       this.invulnUntil = this.now + 700;
       this.cameras.main.flash(120, 76, 201, 240);
+      sfx.shield(); this.hitStop(60);
       return;
     }
     this.hearts--;
@@ -319,6 +342,7 @@ export class RunScene extends Phaser.Scene {
     this.invulnUntil = this.now + RUN.hurtInvulnMs;
     this.cameras.main.shake(140, 0.008);
     this.cameras.main.flash(90, 255, 60, 80);
+    sfx.hurt(); this.hitStop(90);
     if (this.hearts <= 0) this.die();
   }
 
@@ -326,19 +350,24 @@ export class RunScene extends Phaser.Scene {
     this.dead = true;
     this.vy = -520; this.onGround = false;
     this.weapon.setVisible(false);
+    this.cameras.main.shake(320, 0.014);
+    sfx.die();
     this.time.delayedCall(1300, () => this.endRun(false));
   }
 
   private kill(o: Ob): void {
     o.alive = false;
-    if (o.kind === 'slime') this.kills++; else this.crates++;
+    if (o.kind === 'slime') { this.kills++; sfx.squish(); } else { this.crates++; sfx.smash(); }
     this.hitFx.explode(14, o.img.x, o.img.y - 24);
+    this.cameras.main.shake(70, 0.004);
+    this.hitStop(45);
     this.tweens.add({ targets: o.img, alpha: 0, y: o.img.y - 50, angle: 80, duration: 260 });
   }
 
   private endRun(finished: boolean): void {
     if (this.ended) return;
     this.ended = true;
+    if (finished) sfx.finish();
     const result: RunResult = {
       score: this.score() + (finished ? SCORE.finishBonus : 0),
       coins: this.coinCount, kills: this.kills + this.crates, distance: this.distance,
@@ -350,6 +379,7 @@ export class RunScene extends Phaser.Scene {
   // ───────────────────────────── Frame ─────────────────────────────
 
   update(_t: number, deltaMs: number): void {
+    if (this.time.now < this.hitStopUntil) return; // gestures stay queued until the freeze ends
     const dt = Math.min(deltaMs, 50) / 1000;
     this.now += dt * 1000;
     const now = this.now;
@@ -398,6 +428,7 @@ export class RunScene extends Phaser.Scene {
       this.vy += RUN.gravity * dt;
       h.y += this.vy * dt;
       if (h.y >= GROUND_Y && !(this.dead && this.vy < 0)) {
+        if (this.vy > 600 && !this.dead) this.dustFx.explode(5, h.x, GROUND_Y);
         h.y = GROUND_Y; this.vy = 0; this.onGround = true; this.lastGroundAt = now;
         this.airJumps = this.lo.trinket.airJumps ?? 0;
         if (!this.dead) {
@@ -519,6 +550,7 @@ export class RunScene extends Phaser.Scene {
     c.img.setActive(false).setVisible(false);
     this.coinCount++;
     this.coinFx.explode(6, c.img.x, c.img.y);
+    sfx.coin();
     this.coinText.setText(`● ${this.coinCount}`);
   }
 

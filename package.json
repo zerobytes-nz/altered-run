@@ -12,6 +12,7 @@
     "assets:docs": "node scripts/assets-docs.mjs",
     "assets:placeholders": "node scripts/gen-placeholders.mjs",
     "assets:pack": "node scripts/pack-frames.mjs",
+    "pwa:icons": "node scripts/gen-pwa-icons.mjs",
     "prepare": "simple-git-hooks"
   },
   "dependencies": {

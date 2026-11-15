@@ -49,7 +49,8 @@ export class GestureInput {
     return s > 0 ? s : 1;
   }
 
-  private onDown(p: Phaser.Input.Pointer): void {
+  private onDown(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[] = []): void {
+    if (over.length) return; // a tap on an on-screen button (e.g. mute) is not a jump
     this.tracks.set(p.id, { x: p.x, y: p.y, t: p.downTime, done: false });
   }
 

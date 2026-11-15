@@ -27,8 +27,15 @@ A fresh clone runs on the committed art: **CC0 art from GameArt2D** (`public/ass
 | `npm run check-assets` | Fails if licensed art, non-CC0 art in `cc0/`, unlisted media or secrets are in git (runs on pre-commit and CI) |
 | `npm run assets:docs` | Regenerate ASSETS.md from `assets.manifest.json` |
 | `npm run assets:placeholders` | Regenerate the placeholder art from the manifest |
+| `npm run pwa:icons` | Redraw the home-screen icons in `public/icons/` (from CC0 + placeholder art only) |
 
 `assets.manifest.json` is the single source of truth for every image and sound. Game code only uses manifest keys.
+
+## Sound and offline play
+- Sound effects and music are synthesized with Web Audio in `src/systems/audio.ts`: no audio files to license.
+  The speaker button (or the **M** key) mutes it, and the choice is remembered.
+- `npm run build` also writes `dist/sw.js`, a service worker that caches the game (about 3.5 MB) so it plays offline
+  after the first visit, and `manifest.webmanifest` lets phones add it to the home screen. Check it with `npm run preview`.
 
 ## TheoSwap and secrets
 

@@ -3,7 +3,7 @@ import { GAME_W, GAME_H, GROUND_Y, RUN } from '../config';
 import { ensureLoaded, scaleOf } from '../assets';
 import { currentLoadout, loadProfile } from '../theoswap';
 import { loadScores } from '../systems/highscores';
-import { button, slotRow, text } from '../ui';
+import { button, muteButton, slotRow, text } from '../ui';
 
 export class MenuScene extends Phaser.Scene {
   constructor() { super('Menu'); }
@@ -34,6 +34,7 @@ export class MenuScene extends Phaser.Scene {
     text(this, GAME_W - 16, GAME_H - 12, 'Tap = jump · Swipe → attack · Swipe ↓ slide', 14, '#c0c8ff', '600').setOrigin(1, 1);
     text(this, 16, GAME_H - 12, `v0.1 · ${RUN.durationSec}s runs`, 12, '#6c7bbd', '600').setOrigin(0, 1);
 
+    muteButton(this, GAME_W - 34, 34);
     this.input.keyboard?.once('keydown-SPACE', () => this.play());
   }
 

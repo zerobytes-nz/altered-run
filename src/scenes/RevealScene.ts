@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
 import { ensureKeys, iconKey } from '../assets';
-import { ELEMENT_COLOR, ELEMENT_ICON, RARITY_COLOR, SLOT_LABEL, awiTitle, hex, perkText, type AWI } from '../awi';
+import { ELEMENT_COLOR, ELEMENT_ICON, RARITIES, RARITY_COLOR, SLOT_LABEL, awiTitle, hex, perkText, type AWI } from '../awi';
 import type { Profile } from '../theoswap';
 import { button, text } from '../ui';
+import { sfx } from '../systems/audio';
 
 /** One card per AWI: "Your NFT became a Legendary Storm Kunai". Tap for the next card. */
 export class RevealScene extends Phaser.Scene {
@@ -71,6 +72,7 @@ export class RevealScene extends Phaser.Scene {
     this.tweens.add({ targets: c, x: GAME_W / 2, alpha: 1, duration: 260, ease: 'Back.Out' });
     if (a.rarity === 'Legendary' || a.rarity === 'Epic') this.tweens.add({ targets: glow, alpha: 0.12, yoyo: true, repeat: -1, duration: 700 });
     this.card = c;
+    sfx.reveal(RARITIES.indexOf(a.rarity));
     this.counter.setText(`${this.i + 1} / ${this.profile.awis.length} · tap for next`);
   }
 
