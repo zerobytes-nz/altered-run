@@ -42,10 +42,14 @@ A fresh clone runs on the committed art: **CC0 art from GameArt2D** (`public/ass
 The build is a plain static folder: `index.html`, `sw.js`, `manifest.webmanifest`, `icons/`, `assets/`.
 Vite's `base` is `./`, so it works from any sub-folder. Live location: `/var/www/games.theoswap.io/altered-run`.
 
+Put the server in `.env` (gitignored) once: `DEPLOY_TARGET=user@host:/var/www/games.theoswap.io/altered-run/`, then:
+
 ```bash
-npm ci && npm run build          # check-assets + tsc + vite build → dist/
-rsync -av --delete dist/ USER@SERVER:/var/www/games.theoswap.io/altered-run/
+npm run deploy:check   # build, then list what rsync would change (uploads nothing)
+npm run deploy         # build, then rsync dist/ to DEPLOY_TARGET (--delete removes files the build no longer has)
 ```
+
+The folder must exist on the server and be writable by that SSH user.
 
 - Build on a machine that has `.env` with the **test** key (it is baked into the JS) and the licensed art in
   `public/assets/licensed/` if you want it: the build ships whichever art it finds (licensed → CC0 → placeholder).

@@ -13,6 +13,8 @@
     "assets:placeholders": "node scripts/gen-placeholders.mjs",
     "assets:pack": "node scripts/pack-frames.mjs",
     "pwa:icons": "node scripts/gen-pwa-icons.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "deploy:check": "node scripts/deploy.mjs --dry-run",
     "prepare": "simple-git-hooks"
   },
   "dependencies": {
