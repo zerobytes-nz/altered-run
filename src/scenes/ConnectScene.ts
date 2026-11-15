@@ -4,6 +4,9 @@ import { DEMO_PROFILES, type DemoId } from '../demo';
 import { connect, connectDemo, hasApiKey, normalizeCode, type Profile } from '../theoswap';
 import { button, text } from '../ui';
 
+/** TheoSwap test codes that have Altered Run test items: AAAAAAAA = 13 AWIs, BBBBBBBB = 5, CCCCCCCC = 1. */
+const TEST_CODES = ['AAAAAAAA', 'BBBBBBBB', 'CCCCCCCC'];
+
 /** Enter a TheoSwap user code (or pick a demo profile) to turn your NFTs into AWIs. */
 export class ConnectScene extends Phaser.Scene {
   private busy = false;
@@ -41,6 +44,15 @@ export class ConnectScene extends Phaser.Scene {
       button(this, x, 340, DEMO_PROFILES[id].name, () => this.run(() => connectDemo(id)), 250, 54, 0x3a0ca3);
       text(this, x, 376, DEMO_PROFILES[id].blurb, 14, '#c0c8ff', '600').setOrigin(0.5, 0).setWordWrapWidth(250).setAlign('center');
     });
+
+    // Showcase: TheoSwap's test players (real API answers, easy to remember). The server maps these
+    // codes to the game's TEST key; every other code goes to the live key (README → Deploy).
+    if (hasApiKey) {
+      text(this, GAME_W / 2 + 80, 430, 'Or try a TheoSwap test player:', 16, '#e8ecff', '600').setOrigin(0.5);
+      TEST_CODES.forEach((code, i) => {
+        button(this, GAME_W / 2 + 80 + (i - 1) * 180, 474, code, () => { this.codeField.value = code; this.submit(); }, 168, 44, 0x4361ee);
+      });
+    }
 
     button(this, 110, GAME_H - 44, '← Back', () => this.scene.start('Menu'), 160, 48, 0x1b2550);
     if (this.autoCode) { this.codeField.value = this.autoCode; this.submit(); }

@@ -72,16 +72,26 @@ location ~ ^/altered-run/assets/.+-[\w-]{8}\.js$ { add_header Cache-Control "pub
 
 ### The API proxy (keeps the live key off players' devices)
 
-The game asks its own server for `/altered-run/api/user-items?userCode=…`. nginx adds the **live** API key and
-forwards the request to TheoSwap, so the key only exists in the nginx config on the server. No Node process:
+The game asks its own server for `/altered-run/api/user-items?userCode=…`. nginx adds the API key and forwards the
+request to TheoSwap, so the keys only exist in the nginx config on the server. The three showcase test codes on the
+Connect screen get the **test** key (TheoSwap's test items for this game); every real player code gets the **live** key. No Node process:
 it is a few lines in the `games.theoswap.io` server block.
 
 ```nginx
-# Altered Run → TheoSwap player lookup. The live key lives only here.
+# Top of the site file, OUTSIDE server { }: which key each player code uses.
+# The showcase test codes (shown on the Connect screen) use the game's TEST key, everyone else the LIVE key.
+map $arg_userCode $altered_run_key {
+    default    "LIVE_API_KEY_HERE";
+    AAAAAAAA   "TEST_API_KEY_HERE";
+    BBBBBBBB   "TEST_API_KEY_HERE";
+    CCCCCCCC   "TEST_API_KEY_HERE";
+}
+
+# Inside server { } (the listen 443 one), e.g. after location / { }:
 location = /altered-run/api/user-items {
     limit_except GET { deny all; }
     if ($arg_userCode !~ "^[A-Za-z0-9]{4,16}$") { return 400; }
-    set $args "apiKey=LIVE_API_KEY_HERE&userCode=$arg_userCode";
+    set $args "apiKey=$altered_run_key&userCode=$arg_userCode";
     proxy_pass https://www.theoswap.io/api/public/user-items;
     proxy_ssl_server_name on;
     proxy_set_header Host www.theoswap.io;
