@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H, GROUND_Y, HERO_X, RUN, SCORE, POWER, DEBUG } from '../config';
 import { asset, scaleOf, heroHoldsWeapon } from '../assets';
-import { guestLoadout, type Loadout } from '../loadout';
+import { guestLoadout, SKINS, type Loadout } from '../loadout';
 import { ELEMENT_COLOR, ELEMENT_ICON, POWER_NAME, hex, type Element } from '../awi';
 import { GestureInput, type Gesture } from '../systems/input';
 import { bestScore } from '../systems/highscores';
@@ -15,12 +15,13 @@ import type { RunResult } from './GameOverScene';
 //   crate         jump onto it, or smash it          (weapon, Robot stomp)
 //   slime         stomp it or hit it                 (weapon)
 //   fly           head height: slide under or hit    (Kunai reaches it early)
-//   armour        4 HP and too tall to jump          (Hammer 1 hit, Sword 2, Kunai 4 from range; Feather hops it; Robot stomps it)
-//   rock          falls from the sky onto its shadow (smash it as it lands; Shield blocks it)
+//   rival         a giant "Altered" copy of a hero you did not pick: 4 HP, too tall to jump
+//                 (Hammer 1 hit, Sword 2, Kunai 4 from range; Feather hops it; Robot stomps it)
+//   rock          falls onto its shadow and lands just ahead of you: jump it (smash it; Shield blocks it)
 //   pit           a hole; wide ones have a ledge     (Feather clears them; Fire / Shadow / Ice powers make them safe)
 //   ledge         one-way platform, often with coins (Feather / Magnet / pets reach the coins)
 // ─────────────────────────────────────────────────────────────────────────────
-type Kind = 'spike' | 'crate' | 'bar' | 'slime' | 'flag' | 'fly' | 'armor' | 'rock' | 'ledge' | 'pit';
+type Kind = 'spike' | 'crate' | 'bar' | 'slime' | 'flag' | 'fly' | 'rival' | 'rock' | 'ledge' | 'pit';
 
 interface Ob {
   img: Phaser.GameObjects.Sprite;
@@ -34,7 +35,8 @@ interface Ob {
   swing: number;    // id of the last swing that hit it (one hit per swing)
   baseY: number;    // flies: bob around this
   falling: boolean; // rocks: still in the air
-  armed: boolean;   // rocks: started falling
+  armed: boolean;   // rocks: started falling · rivals: swung their attack
+  skin: string;     // rivals: which hero sheet they use
   frozen: boolean;  // Ice power
   minGap: number;   // closest the hero came (for near-miss slow-mo)
   passed: boolean;
@@ -52,21 +54,27 @@ const HITBOX: Record<Kind, [number, number, number, number]> = {
   slime: [-22, -36, 44, 36],
   flag: [0, 0, 0, 0],
   fly: [-20, -32, 40, 28],
-  armor: [-34, -205, 68, 205], // art is 128×340 at 0.62 scale
+  rival: [-30, -205, 60, 205], // a hero sheet at RIVAL_MUL × the hero's size (~205 px tall)
   rock: [-20, -42, 40, 40],
   ledge: [-94, -44, 188, 10],
   pit: [0, 0, 0, 0],
 };
 const TEX: Record<Kind, string> = {
   spike: 'obj.spike', crate: 'obj.crate', bar: 'obj.bar', slime: 'enemy.slime', flag: 'obj.flag',
-  fly: 'enemy.fly', armor: 'enemy.armor', rock: 'obj.rock', ledge: 'obj.ledge', pit: 'obj.pit',
+  fly: 'enemy.fly', rival: 'hero.knight.run', rock: 'obj.rock', ledge: 'obj.ledge', pit: 'obj.pit',
 };
-const HP: Partial<Record<Kind, number>> = { crate: 1, slime: 1, fly: 1, rock: 1, armor: 4 };
-const DAMAGEABLE = new Set<Kind>(['crate', 'slime', 'fly', 'rock', 'armor']);
+const HP: Partial<Record<Kind, number>> = { crate: 1, slime: 1, fly: 1, rock: 1, rival: 4 };
+const DAMAGEABLE = new Set<Kind>(['crate', 'slime', 'fly', 'rock', 'rival']);
 const PLATFORM = new Set<Kind>(['crate', 'ledge']);
-const KILL_SCORE: Partial<Record<Kind, number>> = { slime: SCORE.kill, fly: SCORE.kill, armor: SCORE.kill * 3, crate: SCORE.crate, rock: SCORE.crate };
+const KILL_SCORE: Partial<Record<Kind, number>> = { slime: SCORE.kill, fly: SCORE.kill, rival: SCORE.kill * 3, crate: SCORE.crate, rock: SCORE.crate };
 
 const HERO_HALF_W = 15;
+/** Rivals are the hero sheets drawn this many times bigger, flipped to face left, in an "Altered" purple. */
+const RIVAL_MUL = 2.4;
+const RIVAL_TINT = 0xa58cff;
+const ICE_TINT = 0x9fe8ff;
+/** Seconds between a rock landing and the hero reaching it. */
+const ROCK_LEAD_S = 0.5;
 const HERO_STAND_H = 82;
 const HERO_SLIDE_H = 36;
 const COYOTE_MS = 90;
@@ -75,6 +83,8 @@ const PIT_TOP = GROUND_Y - 6;
 
 export class RunScene extends Phaser.Scene {
   private lo!: Loadout;
+  /** Hero skins the player did not pick: these become the giant Altered rivals. */
+  private rivals: string[] = [];
   private gestures!: GestureInput;
   private gbuf: Gesture[] = [];
 
@@ -167,6 +177,7 @@ export class RunScene extends Phaser.Scene {
 
   init(data: { loadout?: Loadout }): void {
     this.lo = data?.loadout ?? guestLoadout();
+    this.rivals = Object.keys(SKINS).filter((id) => id !== this.lo.skin.id);
     // Reset all per-run state (the scene instance is reused between runs).
     this.obs = []; this.coins = []; this.shots = []; this.flag = null; this.heartImgs = []; this.popups = []; this.flyCoins = [];
     this.nextSpawn = 2.2 * RUN.speedStart; this.finishing = false;
@@ -337,23 +348,33 @@ export class RunScene extends Phaser.Scene {
     if (!o) {
       o = {
         img: this.add.sprite(0, 0, TEX[kind]).setDepth(4), kind, alive: true, hx: 0, hy: 0, hw: 0, hh: 0, vx: 0, vy: 0,
-        hp: 1, kick: 0, swing: -1, baseY: 0, falling: false, armed: false, frozen: false, minGap: 1e9, passed: false, w: 0,
+        hp: 1, kick: 0, swing: -1, baseY: 0, falling: false, armed: false, frozen: false, minGap: 1e9, passed: false, w: 0, skin: '',
       };
       this.obs.push(o);
     }
     this.tweens.killTweensOf(o.img);
     const [hx, hy, hw, hh] = HITBOX[kind];
     Object.assign(o, { kind, alive: true, hx, hy, hw, hh, vx: 0, vy: 0, hp: HP[kind] ?? 1, kick: 0, swing: -1, falling: false, armed: false,
-      frozen: this.powerActive('Ice'), minGap: 1e9, passed: false, w: 0 });
+      frozen: this.powerActive('Ice'), minGap: 1e9, passed: false, w: 0,
+      skin: kind === 'rival' ? Phaser.Utils.Array.GetRandom(this.rivals) : '' });
+    const tex = kind === 'rival' ? `hero.${o.skin}.run` : TEX[kind];
+    const scale = kind === 'rival' ? scaleOf(tex) * RIVAL_MUL : scaleOf(tex);
     o.img.anims.stop();
-    o.img.setActive(true).setVisible(true).setAlpha(1).setAngle(0).setOrigin(0.5, 1).setTexture(TEX[kind], 0).setScale(scaleOf(TEX[kind]))
+    o.img.setActive(true).setVisible(true).setAlpha(1).setAngle(0).setOrigin(0.5, 1).setFlipX(kind === 'rival').setTexture(tex, 0).setScale(scale)
       .setDepth(kind === 'pit' ? 1 : kind === 'ledge' ? 3 : 4);
-    if (o.frozen) o.img.setTint(0x9fe8ff); else o.img.clearTint();
+    this.baseTint(o);
     if (kind === 'slime') { o.img.play(TEX.slime); o.vx = -70; }
     if (kind === 'fly') { o.img.play(TEX.fly); o.vx = -90; }
-    if (kind === 'armor') { o.img.play(TEX.armor); o.vx = -40; }
+    if (kind === 'rival') { o.img.play(tex); o.vx = -40; }
     if (o.frozen) o.img.anims.pause();
     return o;
+  }
+
+  /** The tint an obstacle shows when nothing is flashing it. */
+  private baseTint(o: Ob): void {
+    if (o.frozen) o.img.setTint(ICE_TINT);
+    else if (o.kind === 'rival') o.img.setTint(RIVAL_TINT);
+    else o.img.clearTint();
   }
 
   private free(o: Ob): void {
@@ -392,8 +413,8 @@ export class RunScene extends Phaser.Scene {
       ['fly', p > 0.12 ? 1.6 : 0],
       ['pit', p > 0.08 ? 1.5 : 0],
       ['high', p > 0.12 ? 1 : 0],
-      ['rock', p > 0.2 ? 1.1 : 0],
-      ['armor', p > 0.22 ? 1.1 : 0],
+      ['rock', p > 0.2 ? 0.9 : 0],
+      ['rival', p > 0.22 ? 1.1 : 0],
       ['widePit', p > 0.3 ? 1.1 : 0],
       ['spike2', p > 0.3 ? 1.1 : 0],
       ['crate2', p > 0.25 ? 0.8 : 0],
@@ -423,7 +444,7 @@ export class RunScene extends Phaser.Scene {
         if (high) this.coinLine(x - 60, GROUND_Y - 200, 4, 34);
         return 80;
       }
-      case 'armor': this.place('armor', x); return 90;
+      case 'rival': this.place('rival', x); return 90;
       case 'rock': {
         const o = this.place('rock', x + 40, -60);
         o.falling = true; o.armed = false;
@@ -636,7 +657,7 @@ export class RunScene extends Phaser.Scene {
     if (o.hp <= 0) { this.kill(o); return true; }
     // Survived: white flash, knock-back, clang.
     o.img.setTintFill(0xffffff);
-    this.time.delayedCall(70, () => { if (o.frozen) o.img.setTint(0x9fe8ff); else o.img.clearTint(); });
+    this.time.delayedCall(70, () => this.baseTint(o));
     o.kick += kick;
     this.cameras.main.shake(60, 0.004);
     sfx.clang(); this.hitStop(50);
@@ -645,9 +666,9 @@ export class RunScene extends Phaser.Scene {
 
   private kill(o: Ob): void {
     o.alive = false;
-    if (o.kind === 'slime' || o.kind === 'fly' || o.kind === 'armor') {
+    if (o.kind === 'slime' || o.kind === 'fly' || o.kind === 'rival') {
       this.kills++;
-      if (o.kind === 'armor') sfx.crash(); else sfx.squish();
+      if (o.kind === 'rival') sfx.crash(); else sfx.squish();
     } else { this.crates++; sfx.smash(); }
     // Combo: kills close together score more.
     this.combo = this.now < this.comboUntil ? this.combo + 1 : 1;
@@ -664,9 +685,9 @@ export class RunScene extends Phaser.Scene {
     this.addMeter(POWER.perKill);
     o.shadow?.setVisible(false);
     o.img.clearTint();
-    this.hitFx.explode(o.kind === 'armor' ? 26 : 14, o.img.x, o.img.y - 24);
-    this.cameras.main.shake(70, o.kind === 'armor' ? 0.01 : 0.004);
-    this.hitStop(o.kind === 'armor' ? 90 : 45);
+    this.hitFx.explode(o.kind === 'rival' ? 26 : 14, o.img.x, o.img.y - 24);
+    this.cameras.main.shake(70, o.kind === 'rival' ? 0.01 : 0.004);
+    this.hitStop(o.kind === 'rival' ? 90 : 45);
     this.tweens.add({ targets: o.img, alpha: 0, y: o.img.y - 50, angle: 80, duration: 260 });
   }
 
@@ -752,7 +773,7 @@ export class RunScene extends Phaser.Scene {
       if (this.powerFx.frequency < 0) this.powerFx.frequency = 16;
       this.powerFx.setPosition(this.hero.x - 6, this.hero.y - 40);
     } else this.powerFx.frequency = -1;
-    if (!this.powerActive('Ice')) for (const o of this.obs) if (o.frozen) { o.frozen = false; o.img.clearTint(); o.img.anims.resume(); }
+    if (!this.powerActive('Ice')) for (const o of this.obs) if (o.frozen) { o.frozen = false; this.baseTint(o); o.img.anims.resume(); }
 
     this.updateHero(dt, now);
     this.moveWorld(dx, dt, now);
@@ -887,6 +908,11 @@ export class RunScene extends Phaser.Scene {
       if (o.kick > 0) { const k = Math.min(o.kick, 1400 * dt); o.img.x += k; o.kick -= k; }
       if (o.kind === 'fly' && !o.frozen && o.alive) o.img.y = o.baseY + Math.sin(now / 180 + i) * 8;
       if (o.kind === 'rock') this.updateRock(o, dt, h);
+      if (o.kind === 'rival' && o.alive && !o.frozen && !o.armed && o.img.x - h.x < 230) {
+        o.armed = true;
+        o.img.play({ key: `hero.${o.skin}.attack`, frameRate: 16 }).chain(`hero.${o.skin}.run`);
+        sfx.whistle();
+      }
       const right = o.kind === 'pit' ? o.img.x + o.w : o.img.x + 120;
       if (right < -60) { this.free(o); continue; }
       if (!o.alive || this.dead) continue;
@@ -923,14 +949,14 @@ export class RunScene extends Phaser.Scene {
       if (o.kind === 'ledge') continue; // one-way: pass through from below and the sides
       if (ghost || fire) continue;
       // Stomp a slime / fly, or bounce off an armour's head, by landing on it.
-      if ((o.kind === 'slime' || o.kind === 'armor' || o.kind === 'fly') && this.vy > 0 && hb - this.vy * dt <= ot + 16) {
-        if (o.kind !== 'armor') this.kill(o); else if (this.lo.skin.stomp) this.damage(o, 2);
+      if ((o.kind === 'slime' || o.kind === 'rival' || o.kind === 'fly') && this.vy > 0 && hb - this.vy * dt <= ot + 16) {
+        if (o.kind !== 'rival') this.kill(o); else if (this.lo.skin.stomp) this.damage(o, 2);
         this.vy = -RUN.airJumpVelocity * 0.85; this.onGround = false; this.sqX = 0.8; this.sqY = 1.2;
         this.airJumps = this.lo.trinket.airJumps ?? 0;
         continue;
       }
       this.hurt();
-      if (o.kind === 'armor' || o.kind === 'rock') { o.alive = false; this.tweens.add({ targets: o.img, alpha: 0.3, duration: 200 }); }
+      if (o.kind === 'rival' || o.kind === 'rock') { o.alive = false; this.tweens.add({ targets: o.img, alpha: 0.3, duration: 200 }); }
     }
     // Walked off the end of a crate or ledge → start falling.
     if (this.onGround && h.y < GROUND_Y && !this.onPlatform()) this.onGround = false;
@@ -962,9 +988,9 @@ export class RunScene extends Phaser.Scene {
       o.shadow.setAlpha(0.2 + 0.4 * Math.min(1, Math.max(0, (o.img.y + 60) / (GROUND_Y + 60))));
     }
     if (!o.falling || o.frozen) return;
-    // Drop when the shadow is about to reach the hero: it lands right about where the hero will be.
+    // Drop early enough that it lands ROCK_LEAD_S before the hero gets there: you see it land, then jump it.
     const fallT = Math.sqrt((2 * (GROUND_Y + 60)) / RUN.gravity);
-    if (!o.armed && o.img.x - h.x < this.speed * fallT + 30) { o.armed = true; sfx.whistle(); }
+    if (!o.armed && o.img.x - h.x < this.speed * (fallT + ROCK_LEAD_S) + 40) { o.armed = true; sfx.whistle(); }
     if (!o.armed) return;
     o.vy += RUN.gravity * dt;
     o.img.y += o.vy * dt;

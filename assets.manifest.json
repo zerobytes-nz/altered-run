@@ -677,23 +677,6 @@
       }
     },
     {
-      "key": "enemy.armor",
-      "type": "spritesheet",
-      "path": "world/armor.png",
-      "width": 512,
-      "height": 340,
-      "frameWidth": 128,
-      "frameHeight": 340,
-      "frameCount": 4,
-      "displayScale": 0.62,
-      "usedFor": "armoured golem, about 210 px tall in game: too tall for one jump (only a well-timed Ninja jump clears it): 4 HP, 4-frame walk facing left. Feet touch the bottom edge.",
-      "source": "original",
-      "animation": {
-        "frameRate": 6,
-        "repeat": -1
-      }
-    },
-    {
       "key": "obj.rock",
       "type": "image",
       "path": "world/rock.png",

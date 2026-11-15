@@ -37,6 +37,34 @@ A fresh clone runs on the committed art: **CC0 art from GameArt2D** (`public/ass
 - `npm run build` also writes `dist/sw.js`, a service worker that caches the game (about 3.5 MB) so it plays offline
   after the first visit, and `manifest.webmanifest` lets phones add it to the home screen. Check it with `npm run preview`.
 
+## Deploy (games.theoswap.io/altered-run)
+
+The build is a plain static folder: `index.html`, `sw.js`, `manifest.webmanifest`, `icons/`, `assets/`.
+Vite's `base` is `./`, so it works from any sub-folder. Live location: `/var/www/games.theoswap.io/altered-run`.
+
+```bash
+npm ci && npm run build          # check-assets + tsc + vite build → dist/
+rsync -av --delete dist/ USER@SERVER:/var/www/games.theoswap.io/altered-run/
+```
+
+- Build on a machine that has `.env` with the **test** key (it is baked into the JS) and the licensed art in
+  `public/assets/licensed/` if you want it: the build ships whichever art it finds (licensed → CC0 → placeholder).
+  Shipping licensed art inside the game is fine; only putting the raw files in git is not.
+- If the `games.theoswap.io` server block already has `root /var/www/games.theoswap.io;`, nginx needs no new
+  `location`: the folder is served as `/altered-run/`. Add these so updates reach players straight away
+  (only the hashed JS files are safe to cache forever; the art keeps its file names, and the service worker
+  refetches it when a new `sw.js` arrives):
+
+```nginx
+location = /altered-run/sw.js               { add_header Cache-Control "no-cache"; }
+location = /altered-run/index.html          { add_header Cache-Control "no-cache"; }
+location = /altered-run/manifest.webmanifest { add_header Cache-Control "no-cache"; }
+location ~ ^/altered-run/assets/.+-[\w-]{8}\.js$ { add_header Cache-Control "public, max-age=31536000, immutable"; }
+```
+
+- TheoSwap game website (for the "Play" link): `https://games.theoswap.io/altered-run/?userCode=$USER_CODE`.
+  The game reads the code, removes it from the address bar and connects.
+
 ## TheoSwap and secrets
 
 Players tap **Connect TheoSwap**, enter the player code from their TheoSwap profile, and their NFTs

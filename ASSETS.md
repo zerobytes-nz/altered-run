@@ -51,7 +51,7 @@ Edit `assets.manifest.json` (key, path, size, frames, what it's for, source). If
 `scripts/placeholder-art.mjs`. Then run `npm run assets:placeholders && npm run assets:docs` and commit the
 manifest, the placeholder, and this file. Game code refers to assets **only by manifest key**.
 
-## Every file to replace (48)
+## Every file to replace (47)
 
 ### Hero skins (AWI slot: hero)
 
@@ -120,7 +120,6 @@ manifest, the placeholder, and this file. Game code refers to assets **only by m
 |---|---|---|---|---|
 | `enemy.slime` | `world/slime.png` | 448×88 · 4 × 112×88 @ 6 fps, loop | enemy: slime, 4-frame wobble (smash or stomp). Facing left. | → `licensed/` [craftpix.net — free slime / monster sprite pack](https://craftpix.net/freebies/) |
 | `enemy.fly` | `world/fly.png` | 192×72 · 2 × 96×72 @ 14 fps, loop | flying enemy at head height: slide under it or hit it. 2-frame wing flap, facing left. | **CC0** → `cc0/` [Kenney: Platformer Art Deluxe](https://kenney.nl/assets/platformer-art-deluxe) |
-| `enemy.armor` | `world/armor.png` | 512×340 · 4 × 128×340 @ 6 fps, loop | armoured golem, about 210 px tall in game: too tall for one jump (only a well-timed Ninja jump clears it): 4 HP, 4-frame walk facing left. Feet touch the bottom edge. | → `licensed/` [Altered Run original art](https://github.com/zerobytes-nz/altered-run) |
 
 ### Backgrounds
 

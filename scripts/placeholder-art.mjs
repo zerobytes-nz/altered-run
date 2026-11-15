@@ -209,26 +209,6 @@ function fly(c, i) {
   c.fillStyle = 'rgba(255,255,255,0.35)'; c.beginPath(); c.ellipse(24, 16, 6, 2.5, -0.2, 0, TAU); c.fill();
 }
 
-/** Armoured golem, 64×170 logical, 4 walk frames, facing left. */
-function armor(c, i) {
-  const step = [0, 1, 0, -1][i];
-  const stone = (y0, y1) => grad(c, y0, y1, '#9aa3b5', '#5d6478');
-  // legs
-  for (const [x, o] of [[20, step], [40, -step]]) { c.beginPath(); c.roundRect(x - 7, 132 + Math.max(0, o * 3), 14, 36 - Math.max(0, o * 3), 4); c.fillStyle = stone(130, 170); c.fill(); ink(c); }
-  // body
-  c.beginPath(); c.roundRect(8, 62, 50, 76, 14); c.fillStyle = stone(62, 138); c.fill(); ink(c, 1.8);
-  c.fillStyle = 'rgba(0,0,0,0.12)'; for (const [x, y] of [[20, 80], [44, 104], [26, 118]]) circle(c, x, y, 4);
-  // head with a glowing eye slit
-  c.beginPath(); c.roundRect(14, 26, 40, 40, 12); c.fillStyle = stone(26, 66); c.fill(); ink(c, 1.8);
-  c.beginPath(); c.roundRect(16, 40, 22, 8, 4); c.fillStyle = '#1c2340'; c.fill(); ink(c, 1.2);
-  c.fillStyle = '#ff6b4a'; c.fillRect(19, 42.5 + (i === 2 ? 1 : 0), 7, 3);
-  // big tower shield on the front (left) side
-  c.beginPath(); c.roundRect(0, 58 + step, 26, 88, 8); c.fillStyle = grad(c, 58, 146, '#c58b4a', '#8a5a2b'); c.fill(); ink(c, 1.8);
-  c.strokeStyle = '#d9dee8'; c.lineWidth = 3; c.beginPath(); c.roundRect(3, 61 + step, 20, 82, 6); c.stroke();
-  c.fillStyle = '#d9dee8'; circle(c, 13, 102 + step, 5); c.beginPath(); c.arc(13, 102 + step, 5, 0, TAU); ink(c, 1);
-  c.fillStyle = 'rgba(255,255,255,0.3)'; c.beginPath(); c.ellipse(26, 34, 8, 3, -0.3, 0, TAU); c.fill();
-}
-
 /** Boulder, 48×48 logical. */
 function rock(c) {
   c.beginPath(); c.moveTo(8, 40); c.quadraticCurveTo(2, 22, 14, 10); c.quadraticCurveTo(26, 2, 38, 10); c.quadraticCurveTo(48, 22, 42, 38); c.quadraticCurveTo(26, 47, 8, 40); c.closePath();
@@ -274,7 +254,6 @@ export const drawers = {
   },
   'obj.coin': coin,
   'enemy.fly': (c, w, h, i) => fly(c, i),
-  'enemy.armor': (c, w, h, i) => armor(c, i),
   'obj.rock': (c) => rock(c),
   'obj.pit': (c, w, h) => pit(c, w, h),
   'obj.ledge': (c, w) => ledge(c, w),

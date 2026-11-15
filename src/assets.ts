@@ -45,7 +45,9 @@ export const heroHoldsWeapon = (skin: string): boolean => {
 
 /** Hero sheets are big, so only the selected skin's are loaded up front. */
 const isOptional = (key: string) => key.startsWith('hero.');
-const neededFor = (lo: Loadout) => (key: string) => !isOptional(key) || key.startsWith(`hero.${lo.skin.id}.`);
+// The picked hero's sheets, plus every hero's run + attack: the skins you did not pick appear as giant rivals.
+const neededFor = (lo: Loadout) => (key: string) =>
+  !isOptional(key) || key.startsWith(`hero.${lo.skin.id}.`) || /^hero\.\w+\.(run|attack)$/.test(key);
 
 function queue(scene: Phaser.Scene, filter: (key: string) => boolean): number {
   let n = 0;

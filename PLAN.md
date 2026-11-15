@@ -65,7 +65,7 @@ Done:
 
 - AWIs with real impact (design agreed 2026-11-15):
   - **Obstacles that ask for AWIs:** pits (wide ones need the middle ledge or a double jump), high coin ledges,
-    head-height flies, armoured golems (4 HP, too tall to jump), rocks that fall onto a marked shadow.
+    head-height flies, giant Altered rivals (the hero skins you did not pick, 4 HP, too tall to jump), rocks that fall onto a marked shadow.
   - **Weapons:** Sword 2 dmg, Hammer 4 dmg (slow, short), Kunai 1 dmg thrown up to 400 px. Legendary +1 dmg.
   - **Heroes:** Knight +1 heart (Legendary +2), Ninja higher jump and faster attacks, Robot landing stomp (radius × rarity).
   - **Trinkets:** Feather double jump (Legendary triple), Magnet pulls coins, Shield blocks and recharges
@@ -78,7 +78,7 @@ Done:
 
 Still to do:
 - Play-test balance on a phone (spawn weights, meter fill rate, power durations: all in config.ts / RunScene.spawnPattern).
-- Deploy as a static site (e.g. `play.theoswap.io`): needs the developer's choice of host.
+- Deploy to `games.theoswap.io/altered-run` (steps in README → Deploy), then set game 7's website to the `?userCode=$USER_CODE` link.
 - Real art for the sword, hammer, drone, slime, coins, spikes, flag, trinkets and UI, plus background layers.
 - Smaller hero PNGs (about 1 MB per skin now).
 
