@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
 import { preloadFor } from '../assets';
-import { currentLoadout } from '../theoswap';
+import { currentLoadout, normalizeCode } from '../theoswap';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super('Boot'); }
@@ -16,6 +16,16 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Deep link from the TheoSwap profile: the game's website is set to …/?userCode=$USER_CODE,
+    // and TheoSwap fills in the player's code. Connect straight away, then drop it from the URL.
+    const url = new URL(location.href);
+    const code = normalizeCode(url.searchParams.get('userCode') ?? '').toUpperCase();
+    if (code.length >= 4 && code !== 'USERCODE') {
+      url.searchParams.delete('userCode');
+      history.replaceState(null, '', url);
+      this.scene.start('Connect', { code });
+      return;
+    }
     this.scene.start('Menu');
   }
 }

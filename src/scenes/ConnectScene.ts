@@ -10,7 +10,12 @@ export class ConnectScene extends Phaser.Scene {
   private status!: Phaser.GameObjects.Text;
   private codeField!: HTMLInputElement;
 
+  private autoCode = '';
+
   constructor() { super('Connect'); }
+
+  /** `code` comes from a ?userCode= deep link: fill it in and connect right away. */
+  init(data: { code?: string }): void { this.autoCode = data?.code ?? ''; }
 
   create(): void {
     this.busy = false;
@@ -38,7 +43,8 @@ export class ConnectScene extends Phaser.Scene {
     });
 
     button(this, 110, GAME_H - 44, '← Back', () => this.scene.start('Menu'), 160, 48, 0x1b2550);
-    this.codeField.focus({ preventScroll: true });
+    if (this.autoCode) { this.codeField.value = this.autoCode; this.submit(); }
+    else this.codeField.focus({ preventScroll: true });
   }
 
   private submit(): void {
