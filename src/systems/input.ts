@@ -13,6 +13,8 @@ interface Track { x: number; y: number; t: number; done: boolean; }
 export class GestureInput {
   private tracks = new Map<number, Track>();
   private queue: Gesture[] = [];
+  /** Checked first on every touch-down: return true to take the touch (e.g. a thumb button) so it is not a jump. */
+  claim: ((p: Phaser.Input.Pointer) => boolean) | null = null;
 
   constructor(private scene: Phaser.Scene) {
     const inp = scene.input;
@@ -54,6 +56,7 @@ export class GestureInput {
 
   private onDown(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[] = []): void {
     if (over.length) return; // a tap on an on-screen button (e.g. mute) is not a jump
+    if (this.claim?.(p)) return;
     this.tracks.set(p.id, { x: p.x, y: p.y, t: p.downTime, done: false });
   }
 

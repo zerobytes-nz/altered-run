@@ -70,6 +70,11 @@ const PLATFORM = new Set<Kind>(['crate', 'ledge']);
 const KILL_SCORE: Partial<Record<Kind, number>> = { slime: SCORE.kill, fly: SCORE.kill, rival: SCORE.kill * 3, crate: SCORE.crate, rock: SCORE.crate };
 
 const HERO_HALF_W = 15;
+/** Thumb buttons (bottom right). `pad` = extra touch radius around the drawing. */
+const BTN = {
+  attack: { x: GAME_W - 72, y: GAME_H - 70, r: 56, pad: 44 },
+  power: { x: GAME_W - 200, y: GAME_H - 52, r: 42, pad: 32 },
+};
 /** Rivals are the hero sheets drawn this many times bigger, flipped to face left, in an "Altered" purple. */
 const RIVAL_MUL = 2.4;
 const RIVAL_TINT = 0xa58cff;
@@ -260,6 +265,7 @@ export class RunScene extends Phaser.Scene {
 
     this.buildHud();
     this.gestures = new GestureInput(this);
+    this.gestures.claim = (p) => this.claimTouch(p);
     startMusic();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, stopMusic);
   }
@@ -313,29 +319,38 @@ export class RunScene extends Phaser.Scene {
    * fills with the meter and pulses when ready). Both fire on touch-down. Swipes and keys still work.
    */
   private makeActionButtons(): void {
-    const y = GAME_H - 39;
-    const round = (x: number, r: number, col: number, onPress: () => void, kids: Phaser.GameObjects.GameObject[]) => {
-      const bg = this.add.circle(0, 0, r, 0x2b2440, 0.7).setStrokeStyle(4, col, 1);
-      const c = this.add.container(x, y, [bg, ...kids]).setDepth(21).setSize(r * 2, r * 2);
-      // Hit area bigger than the drawing: easy to hit with a thumb without looking.
-      bg.setInteractive(new Phaser.Geom.Circle(r, r, r + 16), Phaser.Geom.Circle.Contains)
-        .on('pointerdown', () => { c.setScale(0.9); onPress(); })
-        .on('pointerup', () => c.setScale(1)).on('pointerout', () => c.setScale(1));
-      return c;
+    const round = (x: number, y: number, r: number, col: number, kids: Phaser.GameObjects.GameObject[]) => {
+      const bg = this.add.circle(0, 0, r, 0x2b2440, 0.72).setStrokeStyle(5, col, 1);
+      return this.add.container(x, y, [bg, ...kids]).setDepth(21);
     };
-    // ATTACK: the equipped weapon, angled like a swing.
+    // ATTACK: big, in the corner under the right thumb, showing the equipped weapon angled like a swing.
+    const A = BTN.attack;
     const wKey = `weapon.${this.lo.weapon.id}`;
-    const wIcon = this.add.image(0, -4, wKey).setAngle(-45).setTint(this.lo.weapon.tint);
-    wIcon.setScale(Math.min(46 / wIcon.width, 46 / wIcon.height) * 1.25);
-    const aLbl = text(this, 0, 22, 'ATTACK', 11, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 3);
+    const wIcon = this.add.image(0, -6, wKey).setAngle(-45).setTint(this.lo.weapon.tint);
+    wIcon.setScale(Math.min(64 / wIcon.width, 64 / wIcon.height) * 1.25);
+    const aLbl = text(this, 0, A.r - 18, 'ATTACK', 14, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 4);
     this.attackArc = this.add.graphics();
-    this.attackBtn = round(GAME_W - 52, 36, 0xffffff, () => this.tryAttack(), [this.attackArc, wIcon, aLbl]);
+    this.attackBtn = round(A.x, A.y, A.r, 0xffffff, [this.attackArc, wIcon, aLbl]);
     // POWER: element icon + a ring that fills as the meter charges.
-    const col = ELEMENT_COLOR[this.powerEl];
+    const P = BTN.power, col = ELEMENT_COLOR[this.powerEl];
     this.powerArc = this.add.graphics();
-    const pIcon = text(this, 0, -5, ELEMENT_ICON[this.powerEl], 26, '#ffffff').setOrigin(0.5);
-    this.powerLbl = text(this, 0, 20, 'POWER', 11, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 3);
-    this.powerBtn = round(GAME_W - 140, 32, col, () => this.activatePower(), [this.powerArc, pIcon, this.powerLbl]);
+    const pIcon = text(this, 0, -7, ELEMENT_ICON[this.powerEl], 34, '#ffffff').setOrigin(0.5);
+    this.powerLbl = text(this, 0, P.r - 15, 'POWER', 13, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 4);
+    this.powerBtn = round(P.x, P.y, P.r, col, [this.powerArc, pIcon, this.powerLbl]);
+
+    // Touch zones much bigger than the drawings, checked before a touch can become a jump:
+    // the nearest button whose zone the finger lands in gets it.
+  }
+
+  /** A touch-down in a button's zone fires that button (and is not a jump). Wired to GestureInput.claim. */
+  private claimTouch(p: Phaser.Input.Pointer): boolean {
+    const A = BTN.attack, P = BTN.power;
+    const press = (c: Phaser.GameObjects.Container) => { c.setScale(0.88); this.time.delayedCall(110, () => c.setScale(1)); };
+    const da = Phaser.Math.Distance.Between(p.x, p.y, A.x, A.y), dp = Phaser.Math.Distance.Between(p.x, p.y, P.x, P.y);
+    const inA = da < A.r + A.pad, inP = dp < P.r + P.pad;
+    if (inA && (!inP || da / A.r <= dp / P.r)) { press(this.attackBtn); this.tryAttack(); return true; }
+    if (inP) { press(this.powerBtn); this.activatePower(); return true; }
+    return false;
   }
 
   /** The first few runs: point at the controls for a few seconds (phones have no keys to discover). */
@@ -349,8 +364,8 @@ export class RunScene extends Phaser.Scene {
       text(this, x, y, msg, size, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 6).setDepth(22).setAlign('center');
     const items = [
       tip(GAME_W / 2, 190, touch ? 'TAP anywhere = JUMP   ·   SWIPE ↓ = SLIDE' : 'SPACE = JUMP   ·   ↓ = SLIDE', 22),
-      tip(GAME_W - 52, GAME_H - 104, touch ? 'ATTACK\n↓' : 'ATTACK (X)\n↓'),
-      tip(GAME_W - 168, GAME_H - 104, touch ? 'POWER\n↓' : 'POWER (Q)\n↓'),
+      tip(BTN.attack.x, BTN.attack.y - BTN.attack.r - 34, touch ? 'ATTACK\n↓' : 'ATTACK (X)\n↓'),
+      tip(BTN.power.x, BTN.power.y - BTN.power.r - 34, touch ? 'POWER\n↓' : 'POWER (Q)\n↓'),
       tip(GAME_W / 2, 224, 'Coins and hits fill your POWER', 16),
     ];
     for (const t of items) {
@@ -368,15 +383,15 @@ export class RunScene extends Phaser.Scene {
     // POWER ring: fills with the meter, pulses + "READY!" when full, drains while the power runs.
     const fill = this.powerActive() ? Math.max(0, (this.powerUntil - this.now) / this.powerMs) : this.meter;
     this.powerArc.clear().lineStyle(6, ELEMENT_COLOR[this.powerEl], ready ? 1 : 0.85)
-      .beginPath().arc(0, 0, 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fill).strokePath();
+      .beginPath().arc(0, 0, BTN.power.r - 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fill).strokePath();
     this.powerBtn.setAlpha(ready || this.powerActive() ? 1 : 0.75);
-    if (this.powerBtn.scale > 0.95) this.powerBtn.setScale(ready ? 1.06 + Math.sin(this.now / 110) * 0.08 : 1);
+    if (this.powerBtn.scale > 0.9) this.powerBtn.setScale(ready ? 1.06 + Math.sin(this.now / 110) * 0.08 : 1);
     this.powerLbl.setText(ready ? 'READY!' : 'POWER');
     // ATTACK: dims and shows a sweep while the weapon recharges.
     const cd = this.lo.weapon.cooldownMs * (this.lo.skin.attackCdMul ?? 1);
     const left = Math.max(0, (this.attackReadyAt - this.now) / cd);
     this.attackArc.clear();
-    if (left > 0) this.attackArc.fillStyle(0x000000, 0.45).slice(0, 0, 36, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left).fillPath();
+    if (left > 0) this.attackArc.fillStyle(0x000000, 0.45).slice(0, 0, BTN.attack.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left).fillPath();
     this.attackBtn.setAlpha(left > 0 ? 0.7 : 1);
     this.vignette.setAlpha(this.hearts === 1 && !this.dead ? 0.55 + Math.sin(this.now / 160) * 0.35 : 0);
     if (++this.hudTick % 6 !== 0) return; // text re-rasterises: update ~10×/s, only on change
