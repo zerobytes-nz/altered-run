@@ -57,23 +57,25 @@ Stack: **Phaser 3 + TypeScript + Vite**, static build, landscape, mobile-first.
 - Buying paid AWIs in the game.
 
 ## Art and open source
-The repo is **open source**, but the craftpix/gameart2d packs may not be redistributed. So:
+The repo is **open source**. GameArt2D freebies are **CC0** (public domain) and are committed; craftpix.net freebies may not be redistributed. So:
 - `assets.manifest.json` is the single source of truth. It records every asset's key, path, pixel size, frames, animation, use and source pack.
 - `public/assets/placeholder/` is committed. It holds original art generated from the manifest, with the same sizes and frame counts.
-- `public/assets/licensed/` is gitignored. It holds the user's copies of the real art, which override placeholders file by file.
-- `npm run check-assets` runs in the pre-commit hook and CI. It blocks licensed files, unlisted media and secrets from git.
+- `public/assets/cc0/` is committed. It holds art from sources marked `"cc0": true` in the manifest (the GameArt2D packs).
+- `public/assets/licensed/` is gitignored. It holds the user's copies of non-redistributable art.
+- The game picks `licensed/` → `cc0/` → `placeholder/`, file by file, by exact pixel size.
+- `npm run check-assets` runs in the pre-commit hook and CI. It blocks licensed files, non-CC0 files in `cc0/`, unlisted media and secrets from git.
 - [ASSETS.md](ASSETS.md) is generated. It lists every file to supply and the pack to get it from.
 
-Suggested packs: the gameart2d freebies "The Knight", "Ninja" and "The Robot" (they share idle/run/jump/slide/attack/dead animations) and the "Free Platformer Game Tileset". From craftpix.net freebies: weapon icons, pets, slimes, objects and the GUI.
+Packs (URLs in the manifest, licences checked 2026-11-15): GameArt2D "The Knight", "Ninja Adventure", "The Robot", "Cat & Dog" and "Free Platformer Game Tileset" (all CC0). Still to choose, from craftpix.net freebies or another CC0 source: weapon icons, drone pet, slime, spikes/coins/flag and the GUI.
 
 ## Repo layout
 ```
 assets.manifest.json   every art/sound file (single source of truth)
-public/assets/placeholder/  committed original art   public/assets/licensed/  gitignored real art
+public/assets/placeholder/  committed original art   public/assets/cc0/  committed CC0 art   public/assets/licensed/  gitignored real art
 scripts/               check-assets, assets-status, assets-docs, gen-placeholders, pack-frames
 src/
   main.ts              Phaser config
-  assets.ts            manifest-driven preload (licensed → placeholder fallback via vite plugin)
+  assets.ts            manifest-driven preload (licensed → cc0 → placeholder via vite plugin)
   config.ts            tunables (speeds, run length, scoring)
   loadout.ts           AWI slot model + defaults (milestone 2 fills from the API)
   scenes/              Boot, Menu, Run, GameOver

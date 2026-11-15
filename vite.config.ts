@@ -3,8 +3,8 @@ import { resolveAssets, loadManifest, PUBLIC_DIR } from './scripts/lib/assets.mj
 import path from 'node:path';
 
 /**
- * `virtual:asset-urls` → { [manifest key]: url }. Picks the licensed file when it exists
- * with the size the manifest expects, else the committed placeholder. Decided at dev/build
+ * `virtual:asset-urls` → { [manifest key]: url }. Picks licensed/ → cc0/ → placeholder/,
+ * the first file that exists with the size the manifest expects (see resolveAssets). Decided at dev/build
  * time, so a fresh clone makes zero requests for missing licensed files.
  */
 function assetUrls(): Plugin {
@@ -17,9 +17,10 @@ function assetUrls(): Plugin {
       const m = loadManifest();
       const urls: Record<string, string> = {};
       for (const r of resolveAssets(m)) {
-        if (r.licensed.exists && !r.licensed.sizeOk) {
-          this.warn(`${r.licensedFile} is ${r.licensed.size?.width}×${r.licensed.size?.height}, expected ${r.asset.width}×${r.asset.height}: using the placeholder`);
+        for (const [f, c] of [[r.licensedFile, r.licensed], [r.cc0File, r.cc0]] as const) {
+          if (c.exists && !c.sizeOk) this.warn(`${f} is ${c.size?.width}×${c.size?.height}, expected ${r.asset.width}×${r.asset.height}: skipped`);
         }
+        if (r.cc0.exists && !r.cc0Allowed) this.warn(`${r.cc0File} is ignored: source "${r.asset.source}" is not marked cc0 in the manifest`);
         urls[r.asset.key] = r.url;
       }
       return `export default ${JSON.stringify(urls)};`;
@@ -27,7 +28,7 @@ function assetUrls(): Plugin {
     configureServer(server) {
       const m = loadManifest();
       const dir = path.join(PUBLIC_DIR, m.roots.licensed);
-      server.watcher.add([dir, path.join(PUBLIC_DIR, m.roots.placeholder), 'assets.manifest.json']);
+      server.watcher.add([dir, path.join(PUBLIC_DIR, m.roots.cc0), path.join(PUBLIC_DIR, m.roots.placeholder), 'assets.manifest.json']);
       const refresh = (file: string) => {
         if (!file.startsWith(PUBLIC_DIR + path.sep + 'assets') && !file.endsWith('assets.manifest.json')) return;
         const mod = server.moduleGraph.getModuleById(RID);

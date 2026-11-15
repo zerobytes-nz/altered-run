@@ -21,11 +21,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -------------------------------------------------------------------------------
-Third-party art is NOT covered by this licence and is NOT included.
+Third-party art is NOT covered by this licence.
 
 This licence covers the source code and the original placeholder art in
-public/assets/placeholder/. The game is designed to use art from third-party
-packs (e.g. craftpix.net, gameart2d.com). Those files are not part of this
-repository, are not licensed by the Altered Run authors, and remain under their
-owners' licences, which generally forbid redistribution. See ASSETS.md for what
-to download and where to put it (public/assets/licensed/, which is gitignored).
+public/assets/placeholder/.
+
+public/assets/cc0/ contains art by GameArt2D.com (https://www.gameart2d.com),
+released by its author under CC0 1.0 / public domain
+(https://www.gameart2d.com/license.html). It is included as-is and is not
+relicensed under MIT.
+
+Other third-party packs the game can use (e.g. craftpix.net freebies) are NOT
+included. They remain under their owners' licences, which forbid redistributing
+the files. See ASSETS.md for what to download and where to put it
+(public/assets/licensed/, which is gitignored).

@@ -31,7 +31,7 @@ const IMAGE_REQUIRED = ['width', 'height', 'frameWidth', 'frameHeight', 'frameCo
 /** Returns a list of human-readable problems with the manifest itself. */
 export function validateManifest(m) {
   const errs = [];
-  if (!m.roots?.licensed || !m.roots?.placeholder) errs.push('manifest.roots.licensed / roots.placeholder missing');
+  if (!m.roots?.licensed || !m.roots?.cc0 || !m.roots?.placeholder) errs.push('manifest.roots.licensed / roots.cc0 / roots.placeholder missing');
   const keys = new Set(), paths = new Set();
   for (const [i, a] of (m.assets ?? []).entries()) {
     const id = a.key ?? `assets[${i}]`;
@@ -52,14 +52,25 @@ export function validateManifest(m) {
   }
   for (const [k, s] of Object.entries(m.sources ?? {})) {
     if (!s.name || !s.url || !s.licence) errs.push(`sources.${k}: needs name, url and licence`);
+    if (s.cc0 && !/^https:\/\//.test(s.licenceUrl ?? '')) errs.push(`sources.${k}: a cc0 source needs a licenceUrl (https) that shows the CC0 terms`);
   }
   return errs;
 }
 
-/** Resolve every asset to the file the game will actually use. */
+/** True when the asset's source pack is CC0 / public domain, so its files may be committed to public/<roots.cc0>/. */
+export const isCc0 = (m, a) => m.sources?.[a.source]?.cc0 === true;
+
+/**
+ * Resolve every asset to the file the game will actually use. Order of preference:
+ *   1. public/<roots.licensed>/<path>    your own copy, gitignored (any licence)
+ *   2. public/<roots.cc0>/<path>         committed CC0 art (only for sources marked "cc0": true)
+ *   3. public/<roots.placeholder>/<path> committed original placeholder (MIT)
+ * A file is only used when it has the exact pixel size the manifest lists.
+ */
 export function resolveAssets(m = loadManifest()) {
   return m.assets.map((a) => {
     const lic = path.join(PUBLIC_DIR, m.roots.licensed, a.path);
+    const cc = path.join(PUBLIC_DIR, m.roots.cc0, a.path);
     const ph = path.join(PUBLIC_DIR, m.roots.placeholder, a.path);
     const check = (file) => {
       if (!fs.existsSync(file)) return { exists: false, sizeOk: false, size: null };
@@ -67,12 +78,16 @@ export function resolveAssets(m = loadManifest()) {
       const size = pngSize(file);
       return { exists: true, size, sizeOk: !!size && size.width === a.width && size.height === a.height };
     };
-    const licensed = check(lic), placeholder = check(ph);
-    const state = licensed.exists && licensed.sizeOk ? 'licensed' : placeholder.exists && placeholder.sizeOk ? 'placeholder' : 'missing';
+    const licensed = check(lic), cc0 = check(cc), placeholder = check(ph);
+    const cc0Allowed = isCc0(m, a);
+    const state = licensed.exists && licensed.sizeOk ? 'licensed'
+      : cc0Allowed && cc0.exists && cc0.sizeOk ? 'cc0'
+      : placeholder.exists && placeholder.sizeOk ? 'placeholder' : 'missing';
+    const root = { licensed: m.roots.licensed, cc0: m.roots.cc0 }[state] ?? m.roots.placeholder;
     return {
-      asset: a, state, licensed, placeholder,
-      licensedFile: path.relative(ROOT, lic), placeholderFile: path.relative(ROOT, ph),
-      url: `${state === 'licensed' ? m.roots.licensed : m.roots.placeholder}/${a.path}`,
+      asset: a, state, licensed, cc0, cc0Allowed, placeholder,
+      licensedFile: path.relative(ROOT, lic), cc0File: path.relative(ROOT, cc), placeholderFile: path.relative(ROOT, ph),
+      url: `${root}/${a.path}`,
     };
   });
 }

@@ -5,17 +5,26 @@
 // Examples:
 //   npm run assets:pack -- hero.ninja.run ~/Downloads/ninja/png/Run__00*.png
 //   npm run assets:pack -- obj.crate ~/Downloads/tileset/png/Objects/Crate.png
+//   npm run assets:pack -- hero.ninja.attack --ref ~/Downloads/ninja/png/Run__000.png ~/Downloads/ninja/png/Attack__0*.png
 //
 // Frames are sorted by the number in their file name, scaled uniformly (same scale for
 // every frame, so the animation doesn't wobble), centred horizontally and aligned to the
-// bottom edge (single images are centred; tiling backgrounds are stretched to fit), then written as a horizontal strip to public/assets/licensed/<path>.
+// bottom edge (single images are centred; tiling backgrounds are stretched to fit), then written as a horizontal strip.
+// Output folder: public/assets/cc0/<path> (committable) when the asset's source is marked "cc0": true,
+// otherwise public/assets/licensed/<path> (gitignored). Pass --licensed to force the gitignored folder.
 // If you pass more frames than the manifest needs, they are sampled evenly.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
-import { loadManifest, PUBLIC_DIR, ROOT } from './lib/assets.mjs';
+import { loadManifest, isCc0, PUBLIC_DIR, ROOT } from './lib/assets.mjs';
 
-const [key, ...files] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const forceLicensed = args.includes('--licensed');
+// --ref <file>: size every sheet of a character from one reference frame (e.g. its first Run frame),
+// so the hero keeps the same size across animations. A sheet only shrinks below that if it would not fit.
+const refAt = args.indexOf('--ref');
+const refFile = refAt >= 0 ? args[refAt + 1] : null;
+const [key, ...files] = args.filter((x, i) => x !== '--licensed' && (refAt < 0 || (i !== refAt && i !== refAt + 1)));
 const m = loadManifest();
 const a = m.assets.find((x) => x.key === key);
 if (!a || !files.length) {
@@ -33,7 +42,11 @@ if (sorted.length !== a.frameCount) console.warn(`Note: got ${sorted.length} fra
 
 const imgs = await Promise.all(picked.map((f) => loadImage(fs.readFileSync(f))));
 const maxW = Math.max(...imgs.map((i) => i.width)), maxH = Math.max(...imgs.map((i) => i.height));
-const s = Math.min(a.frameWidth / maxW, a.frameHeight / maxH);
+let s = Math.min(a.frameWidth / maxW, a.frameHeight / maxH);
+if (refFile) {
+  const ref = await loadImage(fs.readFileSync(refFile));
+  s = Math.min(s, a.frameWidth / ref.width, a.frameHeight / ref.height);
+}
 const canvas = createCanvas(a.width, a.height);
 const c = canvas.getContext('2d');
 c.imageSmoothingQuality = 'high';
@@ -44,7 +57,8 @@ imgs.forEach((img, i) => {
   const y = a.type === 'spritesheet' ? a.frameHeight - h : (a.frameHeight - h) / 2; // characters stand on the bottom edge
   c.drawImage(img, x0 + (a.frameWidth - w) / 2, y, w, h);
 });
-const out = path.join(PUBLIC_DIR, m.roots.licensed, a.path);
+const toCc0 = isCc0(m, a) && !forceLicensed;
+const out = path.join(PUBLIC_DIR, toCc0 ? m.roots.cc0 : m.roots.licensed, a.path);
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, canvas.toBuffer('image/png'));
-console.log(`Wrote ${path.relative(ROOT, out)} (${a.width}×${a.height}, ${a.frameCount} frame${a.frameCount > 1 ? 's' : ''}). This folder is gitignored.`);
+console.log(`Wrote ${path.relative(ROOT, out)} (${a.width}×${a.height}, ${a.frameCount} frame${a.frameCount > 1 ? 's' : ''}). ${toCc0 ? 'CC0 source: this file may be committed.' : 'This folder is gitignored.'}`);
