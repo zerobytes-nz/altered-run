@@ -18,7 +18,12 @@ export class ConnectScene extends Phaser.Scene {
   constructor() { super('Connect'); }
 
   /** `code` comes from a ?userCode= deep link: fill it in and connect right away. */
-  init(data: { code?: string }): void { this.autoCode = data?.code ?? ''; }
+  init(data: { code?: string }): void {
+    this.autoCode = data?.code ?? '';
+    // Use the deep-link code once. Phaser hands a scene its last start data again when it is restarted
+    // without new data, so without this, Disconnect → Connect would log straight back in.
+    if (data) delete data.code;
+  }
 
   create(): void {
     this.busy = false;
