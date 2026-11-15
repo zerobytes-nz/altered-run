@@ -32,7 +32,7 @@ export class MenuScene extends Phaser.Scene {
       if (profile) this.scene.start('Loadout', { profile }); else this.scene.start('Connect');
     }, 260, 50, 0x4361ee);
     button(this, GAME_W / 2 + 40, 456, 'High scores', () => this.showScores(), 260, 44, 0x3a0ca3);
-    text(this, GAME_W - 16, GAME_H - 12, 'Tap = jump · Swipe → attack · ↓ slide · ← POWER', 14, '#ffffff', '700').setOrigin(1, 1).setStroke('#2b2440', 4);
+    text(this, GAME_W - 16, GAME_H - 12, 'Tap = jump · ↓ slide · ATTACK and POWER buttons bottom right', 14, '#ffffff', '700').setOrigin(1, 1).setStroke('#2b2440', 4);
     text(this, 16, GAME_H - 12, `v0.1 · ${RUN.durationSec}s runs`, 12, '#ffffff', '700').setOrigin(0, 1).setStroke('#2b2440', 3);
 
     muteButton(this, GAME_W - 34, 34);

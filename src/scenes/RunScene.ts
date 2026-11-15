@@ -147,6 +147,7 @@ export class RunScene extends Phaser.Scene {
   private meter = 0;
   private powerEl: Element = 'Fire';
   private powerUntil = 0;
+  private powerMs = 1; // length of the running power, for the button ring
   private coinPullUntil = 0;
 
   // HUD
@@ -157,6 +158,10 @@ export class RunScene extends Phaser.Scene {
   private meterFill!: Phaser.GameObjects.Rectangle;
   private meterLabel!: Phaser.GameObjects.Text;
   private powerBtn!: Phaser.GameObjects.Container;
+  private powerArc!: Phaser.GameObjects.Graphics;
+  private powerLbl!: Phaser.GameObjects.Text;
+  private attackBtn!: Phaser.GameObjects.Container;
+  private attackArc!: Phaser.GameObjects.Graphics;
   private comboText!: Phaser.GameObjects.Text;
   private vignette!: Phaser.GameObjects.Graphics;
   private fpsText?: Phaser.GameObjects.Text;
@@ -292,13 +297,8 @@ export class RunScene extends Phaser.Scene {
     hud.add(slots);
     this.comboText = text(this, GAME_W / 2, 64, '', 30, '#ffd34d', '900').setOrigin(0.5).setStroke('#2b2440', 7).setDepth(21).setAlpha(0);
 
-    // POWER button (bottom right). Swipe left, Q or E work too.
-    const r = 38, col = ELEMENT_COLOR[this.powerEl];
-    const ring = this.add.circle(0, 0, r, 0x2b2440, 0.55).setStrokeStyle(4, col, 1);
-    const icon = text(this, 0, -4, ELEMENT_ICON[this.powerEl], 30, '#ffffff').setOrigin(0.5);
-    const lbl = text(this, 0, r - 12, 'POWER', 11, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 3);
-    this.powerBtn = this.add.container(GAME_W - 56, GAME_H - 58, [ring, icon, lbl]).setDepth(21).setAlpha(0.45).setSize(r * 2, r * 2);
-    ring.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.activatePower());
+    this.makeActionButtons();
+    this.showControlsHint();
     muteButton(this, 30, GAME_H - 30, 18).setDepth(21).setAlpha(0.85);
 
     // Red edge when on the last heart.
@@ -307,11 +307,77 @@ export class RunScene extends Phaser.Scene {
     if (DEBUG) this.fpsText = text(this, 64, GAME_H - 28, '', 14, '#2b2440', '700').setDepth(30);
   }
 
+  /**
+   * Thumb buttons in the dirt strip under the ground line (so they never hide what is coming):
+   * ATTACK (bottom right, shows your weapon, dims while it recharges) and POWER (to its left, a ring that
+   * fills with the meter and pulses when ready). Both fire on touch-down. Swipes and keys still work.
+   */
+  private makeActionButtons(): void {
+    const y = GAME_H - 39;
+    const round = (x: number, r: number, col: number, onPress: () => void, kids: Phaser.GameObjects.GameObject[]) => {
+      const bg = this.add.circle(0, 0, r, 0x2b2440, 0.7).setStrokeStyle(4, col, 1);
+      const c = this.add.container(x, y, [bg, ...kids]).setDepth(21).setSize(r * 2, r * 2);
+      // Hit area bigger than the drawing: easy to hit with a thumb without looking.
+      bg.setInteractive(new Phaser.Geom.Circle(r, r, r + 16), Phaser.Geom.Circle.Contains)
+        .on('pointerdown', () => { c.setScale(0.9); onPress(); })
+        .on('pointerup', () => c.setScale(1)).on('pointerout', () => c.setScale(1));
+      return c;
+    };
+    // ATTACK: the equipped weapon, angled like a swing.
+    const wKey = `weapon.${this.lo.weapon.id}`;
+    const wIcon = this.add.image(0, -4, wKey).setAngle(-45).setTint(this.lo.weapon.tint);
+    wIcon.setScale(Math.min(46 / wIcon.width, 46 / wIcon.height) * 1.25);
+    const aLbl = text(this, 0, 22, 'ATTACK', 11, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 3);
+    this.attackArc = this.add.graphics();
+    this.attackBtn = round(GAME_W - 52, 36, 0xffffff, () => this.tryAttack(), [this.attackArc, wIcon, aLbl]);
+    // POWER: element icon + a ring that fills as the meter charges.
+    const col = ELEMENT_COLOR[this.powerEl];
+    this.powerArc = this.add.graphics();
+    const pIcon = text(this, 0, -5, ELEMENT_ICON[this.powerEl], 26, '#ffffff').setOrigin(0.5);
+    this.powerLbl = text(this, 0, 20, 'POWER', 11, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 3);
+    this.powerBtn = round(GAME_W - 140, 32, col, () => this.activatePower(), [this.powerArc, pIcon, this.powerLbl]);
+  }
+
+  /** The first few runs: point at the controls for a few seconds (phones have no keys to discover). */
+  private showControlsHint(): void {
+    const KEY = 'altered-run.hints.v1';
+    let seen = 0;
+    try { seen = Number(localStorage.getItem(KEY)) || 0; localStorage.setItem(KEY, String(seen + 1)); } catch { /* private mode */ }
+    if (seen >= 3) return;
+    const touch = this.sys.game.device.input.touch;
+    const tip = (x: number, y: number, msg: string, size = 18) =>
+      text(this, x, y, msg, size, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 6).setDepth(22).setAlign('center');
+    const items = [
+      tip(GAME_W / 2, 190, touch ? 'TAP anywhere = JUMP   ·   SWIPE ↓ = SLIDE' : 'SPACE = JUMP   ·   ↓ = SLIDE', 22),
+      tip(GAME_W - 52, GAME_H - 104, touch ? 'ATTACK\n↓' : 'ATTACK (X)\n↓'),
+      tip(GAME_W - 168, GAME_H - 104, touch ? 'POWER\n↓' : 'POWER (Q)\n↓'),
+      tip(GAME_W / 2, 224, 'Coins and hits fill your POWER', 16),
+    ];
+    for (const t of items) {
+      t.setAlpha(0);
+      this.tweens.add({ targets: t, alpha: 1, duration: 250 });
+      this.tweens.add({ targets: t, y: t.y - 6, duration: 420, yoyo: true, repeat: 6, ease: 'Sine.InOut' });
+      this.tweens.add({ targets: t, alpha: 0, delay: 5200, duration: 500, onComplete: () => t.destroy() });
+    }
+  }
+
   private updateHud(): void {
     this.progressFill.width = Math.max(1, 220 * Math.min(1, this.elapsed / RUN.durationSec));
     this.meterFill.width = Math.max(1, 150 * this.meter);
     const ready = this.meter >= 1 && !this.powerActive();
-    this.powerBtn.setAlpha(ready ? 1 : 0.45).setScale(ready ? 1 + Math.sin(this.now / 120) * 0.06 : 1);
+    // POWER ring: fills with the meter, pulses + "READY!" when full, drains while the power runs.
+    const fill = this.powerActive() ? Math.max(0, (this.powerUntil - this.now) / this.powerMs) : this.meter;
+    this.powerArc.clear().lineStyle(6, ELEMENT_COLOR[this.powerEl], ready ? 1 : 0.85)
+      .beginPath().arc(0, 0, 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fill).strokePath();
+    this.powerBtn.setAlpha(ready || this.powerActive() ? 1 : 0.75);
+    if (this.powerBtn.scale > 0.95) this.powerBtn.setScale(ready ? 1.06 + Math.sin(this.now / 110) * 0.08 : 1);
+    this.powerLbl.setText(ready ? 'READY!' : 'POWER');
+    // ATTACK: dims and shows a sweep while the weapon recharges.
+    const cd = this.lo.weapon.cooldownMs * (this.lo.skin.attackCdMul ?? 1);
+    const left = Math.max(0, (this.attackReadyAt - this.now) / cd);
+    this.attackArc.clear();
+    if (left > 0) this.attackArc.fillStyle(0x000000, 0.45).slice(0, 0, 36, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * left).fillPath();
+    this.attackBtn.setAlpha(left > 0 ? 0.7 : 1);
     this.vignette.setAlpha(this.hearts === 1 && !this.dead ? 0.55 + Math.sin(this.now / 160) * 0.35 : 0);
     if (++this.hudTick % 6 !== 0) return; // text re-rasterises: update ~10×/s, only on change
     const s = this.score();
@@ -573,7 +639,7 @@ export class RunScene extends Phaser.Scene {
     this.meter = 0;
     const el = this.powerEl, mul = this.lo.powerMul, col = ELEMENT_COLOR[el];
     const dur = { Fire: POWER.fireMs, Ice: POWER.iceMs, Storm: POWER.stormPullMs, Shadow: POWER.shadowMs }[el] * mul;
-    this.powerUntil = this.now + dur;
+    this.powerUntil = this.now + dur; this.powerMs = dur;
     sfx.power(el);
     const cam = this.cameras.main;
     cam.flash(160, (col >> 16) & 255, (col >> 8) & 255, col & 255);
@@ -589,7 +655,7 @@ export class RunScene extends Phaser.Scene {
       for (const o of this.obs) if (o.img.active && o.kind !== 'ledge' && o.kind !== 'flag') this.freeze(o);
     } else if (el === 'Storm') {
       this.coinPullUntil = this.powerUntil;
-      this.powerUntil = this.now + 350; // the strike itself is instant; the coin pull lasts
+      this.powerUntil = this.now + 350; this.powerMs = 350; // the strike itself is instant; the coin pull lasts
       this.bolts.clear();
       for (const o of this.obs) {
         if (!o.img.active || !o.alive || !DAMAGEABLE.has(o.kind) || o.img.x > GAME_W + 40) continue;
