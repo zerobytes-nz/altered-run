@@ -16,6 +16,8 @@ export interface AssetDef {
   displayScale: number;
   animation?: { frameRate: number; repeat: number };
   tile?: boolean;
+  /** Hero art that already shows a weapon in the character's hands. */
+  armed?: boolean;
 }
 
 const DEFS = new Map<string, AssetDef>((manifest.assets as AssetDef[]).map((a) => [a.key, a]));
@@ -28,6 +30,18 @@ export function asset(key: string): AssetDef {
 
 /** Display scale for a key (art is authored at 2× the game's logical size). */
 export const scaleOf = (key: string): number => asset(key).displayScale;
+
+/** True when the file in use is real art (licensed or CC0), not the committed placeholder. */
+export const isRealArt = (key: string): boolean => !urls[key].startsWith(`${manifest.roots.placeholder}/`);
+
+/**
+ * True when the hero's art in use already holds a weapon (e.g. the GameArt2D knight's sword).
+ * The weapon AWI is then shown through the attack effect instead of a second, drawn-on weapon.
+ */
+export const heroHoldsWeapon = (skin: string): boolean => {
+  const key = `hero.${skin}.run`;
+  return !!asset(key).armed && isRealArt(key);
+};
 
 /** Hero sheets are big, so only the selected skin's are loaded up front. */
 const isOptional = (key: string) => key.startsWith('hero.');

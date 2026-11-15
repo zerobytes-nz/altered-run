@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H, GROUND_Y, HERO_X, RUN, SCORE, DEBUG } from '../config';
-import { asset, scaleOf } from '../assets';
+import { asset, scaleOf, heroHoldsWeapon } from '../assets';
 import { guestLoadout, type Loadout } from '../loadout';
 import { GestureInput, type Gesture } from '../systems/input';
 import { bestScore } from '../systems/highscores';
@@ -131,6 +131,9 @@ export class RunScene extends Phaser.Scene {
     this.hero = this.add.sprite(HERO_X, GROUND_Y, `hero.${skin}.run`).setOrigin(0.5, 1).setDepth(5).setScale(scaleOf(`hero.${skin}.run`));
     const wKey = `weapon.${this.lo.weapon.id}`;
     this.weapon = this.add.image(HERO_X, GROUND_Y - 50, wKey).setOrigin(0.12, 0.5).setDepth(6).setScale(scaleOf(wKey));
+    // Real hero art (knight, ninja, robot) already holds a weapon: don't draw a second one on top.
+    // The weapon AWI still sets range/damage and colours the slash.
+    this.weapon.setVisible(!heroHoldsWeapon(skin));
     this.slash = this.add.image(0, 0, 'fx.slash').setOrigin(0.25, 0.5).setDepth(6).setVisible(false);
     this.shieldRing = this.add.circle(HERO_X, GROUND_Y - 44, 56).setStrokeStyle(4, 0x4cc9f0, 0.8).setDepth(6).setVisible(this.shield > 0);
 
@@ -299,7 +302,7 @@ export class RunScene extends Phaser.Scene {
     this.attackReadyAt = this.now + RUN.attackCooldownMs;
     this.slideUntil = 0;
     const s = this.slash;
-    s.setVisible(true).setAlpha(1).setPosition(this.hero.x + 4, this.hero.y - 48).setScale(this.lo.weapon.range / 96, 1);
+    s.setVisible(true).setAlpha(1).setTint(this.lo.weapon.tint).setPosition(this.hero.x + 4, this.hero.y - 48).setScale(this.lo.weapon.range / 96, 1);
     this.tweens.add({ targets: s, alpha: 0, duration: RUN.attackMs, onComplete: () => s.setVisible(false) });
   }
 

@@ -96,7 +96,8 @@
         "repeat": -1
       },
       "sourceFiles": "Idle (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.knight.run",
@@ -115,7 +116,8 @@
         "repeat": -1
       },
       "sourceFiles": "Run (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.knight.jump",
@@ -134,7 +136,8 @@
         "repeat": 0
       },
       "sourceFiles": "Jump (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.knight.slide",
@@ -153,7 +156,8 @@
         "repeat": -1
       },
       "sourceFiles": "Run (1-10).png, rotated",
-      "notes": "The free pack has no slide: made from the run frames with npm run assets:pack -- hero.knight.slide --rotate -70 --ref 'Run (1).png' 'Run (*).png'. Feet at the bottom-centre of every frame, facing right."
+      "notes": "The free pack has no slide: made from the run frames with npm run assets:pack -- hero.knight.slide --rotate -70 --ref 'Run (1).png' 'Run (*).png'. Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.knight.attack",
@@ -172,7 +176,8 @@
         "repeat": 0
       },
       "sourceFiles": "Attack (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.knight.dead",
@@ -191,7 +196,8 @@
         "repeat": 0
       },
       "sourceFiles": "Dead (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.ninja.idle",
@@ -210,7 +216,8 @@
         "repeat": -1
       },
       "sourceFiles": "Idle__000-009.png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.ninja.run",
@@ -229,7 +236,8 @@
         "repeat": -1
       },
       "sourceFiles": "Run__000-009.png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.ninja.jump",
@@ -248,7 +256,8 @@
         "repeat": 0
       },
       "sourceFiles": "Jump__000-009.png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.ninja.slide",
@@ -267,7 +276,8 @@
         "repeat": -1
       },
       "sourceFiles": "Slide__000-009.png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.ninja.attack",
@@ -286,7 +296,8 @@
         "repeat": 0
       },
       "sourceFiles": "Attack__000-009.png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.ninja.dead",
@@ -305,7 +316,8 @@
         "repeat": 0
       },
       "sourceFiles": "Dead__000-009.png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.robot.idle",
@@ -324,7 +336,8 @@
         "repeat": -1
       },
       "sourceFiles": "Idle (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.robot.run",
@@ -343,7 +356,8 @@
         "repeat": -1
       },
       "sourceFiles": "Run (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.robot.jump",
@@ -362,7 +376,8 @@
         "repeat": 0
       },
       "sourceFiles": "Jump (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.robot.slide",
@@ -381,7 +396,8 @@
         "repeat": -1
       },
       "sourceFiles": "Slide (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.robot.attack",
@@ -400,7 +416,8 @@
         "repeat": 0
       },
       "sourceFiles": "Melee (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "hero.robot.dead",
@@ -419,7 +436,8 @@
         "repeat": 0
       },
       "sourceFiles": "Dead (1-10).png",
-      "notes": "Feet at the bottom-centre of every frame, facing right."
+      "notes": "Feet at the bottom-centre of every frame, facing right.",
+      "armed": true
     },
     {
       "key": "weapon.sword",

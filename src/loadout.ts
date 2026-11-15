@@ -4,7 +4,11 @@
 export type SlotId = 'skin' | 'weapon' | 'pet' | 'trinket';
 
 export interface SkinDef { id: string; name: string; }
-export interface WeaponDef { id: string; name: string; range: number; damage: number; }
+export interface WeaponDef {
+  id: string; name: string; range: number; damage: number;
+  /** Colour of the attack slash, so the weapon AWI shows even when the hero art carries its own weapon. */
+  tint: number;
+}
 export interface PetDef { id: string; name: string; radius: number; speed: number; }
 export interface TrinketDef {
   id: string; name: string; desc: string;
@@ -18,9 +22,9 @@ export const SKINS: Record<string, SkinDef> = {
 };
 
 export const WEAPONS: Record<string, WeaponDef> = {
-  sword: { id: 'sword', name: 'Sword', range: 96, damage: 1 },
-  kunai: { id: 'kunai', name: 'Kunai', range: 150, damage: 1 },
-  hammer: { id: 'hammer', name: 'Hammer', range: 80, damage: 2 },
+  sword: { id: 'sword', name: 'Sword', range: 96, damage: 1, tint: 0xffffff },
+  kunai: { id: 'kunai', name: 'Kunai', range: 150, damage: 1, tint: 0x80ffdb },
+  hammer: { id: 'hammer', name: 'Hammer', range: 80, damage: 2, tint: 0xffb347 },
 };
 
 export const PETS: Record<string, PetDef> = {
