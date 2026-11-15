@@ -9,26 +9,27 @@ const item = (n: number, itemId: string, Rarity: string, Element: string): ApiIt
   contract: '0x0000000000000000000000000000000000000000', token_id: n, itemData: { itemId, Rarity, Element },
 });
 
+// Sample data = exactly what TheoSwap returns for these test codes (saved 2026-11-15, config 15).
 export const DEMO_PROFILES: Record<DemoId, { name: string; blurb: string; testCode: string; sample: ApiItem[] }> = {
   whale: {
-    name: 'Whale', blurb: '14 NFTs: legendaries, doubles, every slot', testCode: 'AAAAAAAA',
+    name: 'Whale', blurb: '14 NFTs: every AWI, epics and a double cat', testCode: 'AAAAAAAA',
     sample: [
-      item(101, 'hero_ninja', 'Legendary', 'Storm'), item(102, 'hero_robot', 'Epic', 'Ice'), item(103, 'hero_knight', 'Rare', 'Fire'),
-      item(104, 'weapon_kunai', 'Legendary', 'Fire'), item(105, 'weapon_hammer', 'Epic', 'Shadow'), item(106, 'weapon_sword', 'Common', 'Ice'),
-      item(107, 'pet_dog', 'Epic', 'Storm'), item(108, 'pet_cat', 'Rare', 'Shadow'), item(109, 'pet_drone', 'Common', 'Ice'),
-      item(110, 'trinket_shield', 'Legendary', 'Ice'), item(111, 'trinket_feather', 'Epic', 'Storm'), item(112, 'trinket_magnet', 'Rare', 'Fire'),
-      item(113, 'pet_cat', 'Rare', 'Shadow'), item(114, 'trinket_boots', 'Common', 'Shadow'),
+      item(2, 'hero_ninja', 'Rare', 'Ice'), item(10, 'hero_robot', 'Common', 'Fire'), item(4, 'hero_knight', 'Common', 'Shadow'),
+      item(3, 'weapon_kunai', 'Common', 'Shadow'), item(60, 'weapon_hammer', 'Rare', 'Fire'), item(17, 'weapon_sword', 'Epic', 'Fire'),
+      item(5, 'pet_dog', 'Common', 'Fire'), item(6, 'pet_cat', 'Common', 'Storm'), item(28, 'pet_cat', 'Common', 'Storm'),
+      item(7, 'pet_drone', 'Common', 'Shadow'), item(68, 'trinket_shield', 'Common', 'Shadow'), item(1, 'trinket_feather', 'Epic', 'Fire'),
+      item(13, 'trinket_magnet', 'Common', 'Ice'), item(37, 'trinket_boots', 'Common', 'Storm'),
     ],
   },
   collector: {
     name: 'Collector', blurb: '5 NFTs: one per slot, plus a spare pet', testCode: 'BBBBBBBB',
     sample: [
-      item(201, 'hero_robot', 'Rare', 'Shadow'), item(202, 'weapon_sword', 'Rare', 'Storm'),
-      item(203, 'pet_cat', 'Common', 'Fire'), item(204, 'pet_dog', 'Common', 'Ice'), item(205, 'trinket_magnet', 'Common', 'Ice'),
+      item(10, 'hero_robot', 'Common', 'Fire'), item(17, 'weapon_sword', 'Epic', 'Fire'),
+      item(6, 'pet_cat', 'Common', 'Storm'), item(5, 'pet_dog', 'Common', 'Fire'), item(13, 'trinket_magnet', 'Common', 'Ice'),
     ],
   },
   newbie: {
     name: 'New player', blurb: '1 NFT: the rest are defaults', testCode: 'CCCCCCCC',
-    sample: [item(301, 'weapon_kunai', 'Common', 'Ice')],
+    sample: [item(3, 'weapon_kunai', 'Common', 'Shadow')],
   },
 };
