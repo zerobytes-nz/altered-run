@@ -23,6 +23,9 @@ import type { RunResult } from './GameOverScene';
 //   pit           a hole; wide ones have a ledge     (Feather clears them; Fire / Shadow / Ice powers make them safe)
 //   ledge         one-way platform, often with coins (Feather / Magnet / pets reach the coins)
 // ─────────────────────────────────────────────────────────────────────────────
+/** The hero's coin pickup point is this far above the feet (pickup radius 46 px). */
+const HERO_COIN_Y = 44;
+
 type Kind = 'spike' | 'crate' | 'bar' | 'slime' | 'flag' | 'fly' | 'rival' | 'rock' | 'ledge' | 'pit';
 
 interface Ob {
@@ -574,8 +577,8 @@ export class RunScene extends Phaser.Scene {
       }
       case 'rest': return 0;
       case 'coinsLow': this.coinLine(x, GROUND_Y - 30, 6, 40); return 240;
-      case 'coinsHigh': this.coinLine(x, GROUND_Y - 150, 6, 40); return 240;
-      default: this.coinLine(x, GROUND_Y - 30 - (this.rng.frac() < 0.5 ? 0 : 120), 6, 40); return 240;
+      case 'coinsHigh': this.jumpArc(x + 100, 6, 40); return 240;
+      default: if (this.rng.frac() < 0.5) this.coinLine(x, GROUND_Y - 30, 6, 40); else this.jumpArc(x + 100, 6, 40); return 240;
     }
   }
 
@@ -585,15 +588,27 @@ export class RunScene extends Phaser.Scene {
     o.img.setOrigin(0, 0).setPosition(x, PIT_TOP).setDisplaySize(w, asset('obj.pit').height * scaleOf('obj.pit'));
   }
 
-  private coinArc(cx: number): void {
-    this.coinsSpawned += 5;
-    for (let i = -2; i <= 2; i++) this.getCoin(cx + i * 34, GROUND_Y - 120 - (4 - i * i) * 14);
+  /**
+   * n coins on the path of one full jump that peaks over cx, at the current speed. The world moves at `speed`,
+   * so a coin u px from the peak is passed (u / speed) s from the top of the jump; it sits where the hero's
+   * centre is then (pickup radius 46 px). One jump timed to peak over cx collects them all.
+   */
+  private jumpArc(cx: number, n: number, gap: number): void {
+    this.coinsSpawned += n;
+    const v = this.jumpVel(), g = RUN.gravity, s = Math.max(200, this.speed);
+    const peak = (v * v) / (2 * g) - 6; // feet height at the top, a little under so early/late jumps still reach
+    for (let i = 0; i < n; i++) {
+      const u = (i - (n - 1) / 2) * gap, t = u / s;
+      const feet = Math.max(24, peak - 0.5 * g * t * t);
+      this.getCoin(cx + u, GROUND_Y - HERO_COIN_Y - feet);
+    }
   }
 
-  private coinArcOver(cx: number, n: number): void {
-    this.coinsSpawned += n;
-    for (let i = 0; i < n; i++) { const t = n === 1 ? 0 : i / (n - 1) - 0.5; this.getCoin(cx + t * 110, GROUND_Y - 150 + t * t * 120); }
-  }
+  /** The arc over a spike or crate. */
+  private coinArc(cx: number): void { this.jumpArc(cx, 5, 36); }
+
+  /** The arc over a pit. */
+  private coinArcOver(cx: number, n: number): void { this.jumpArc(cx, n, 55); }
 
   private coinLine(x: number, y: number, n: number, gap: number): void {
     this.coinsSpawned += n;
@@ -1093,7 +1108,7 @@ export class RunScene extends Phaser.Scene {
 
     const magnet = this.lo.trinket.magnet ?? 0;
     const pullAll = now < this.coinPullUntil;
-    const hcy = h.y - 44;
+    const hcy = h.y - HERO_COIN_Y;
     for (let i = 0; i < this.coins.length; i++) {
       const c = this.coins[i];
       if (!c.img.active) continue;
@@ -1183,20 +1198,20 @@ export class RunScene extends Phaser.Scene {
     const pet = this.lo.pet;
     const h = this.hero;
     let tx = h.x - 64, ty = Math.min(h.y, GROUND_Y) - 104 + Math.sin(now / 260) * 6;
-    // Seek the nearest coin a little ahead (one at a time, short cooldown).
+    // Fetch coins the hero has run past and missed, nearest first (short cooldown, so it can catch a few).
     if (now >= this.petReadyAt && !this.dead) {
       let best: Coin | null = null, bd = 1e9;
       for (const c of this.coins) {
         if (!c.alive || c.pulled) continue;
         const x = c.img.x;
-        if (x < h.x - 30 || x > h.x + 320) continue;
+        if (x > h.x - 24 || x < 8) continue;
         const d = Math.abs(x - this.petX) + Math.abs(c.img.y - this.petY);
         if (d < bd) { bd = d; best = c; }
       }
       if (best) {
         tx = best.img.x; ty = best.img.y;
         const ddx = tx - this.petX, ddy = ty - this.petY;
-        if (ddx * ddx + ddy * ddy < pet.radius * pet.radius * 0.25) { this.collect(best); this.petReadyAt = now + 550; }
+        if (ddx * ddx + ddy * ddy < pet.radius * pet.radius * 0.25) { this.collect(best); this.petReadyAt = now + 220; }
       }
     }
     const ddx = tx - this.petX, ddy = ty - this.petY;
