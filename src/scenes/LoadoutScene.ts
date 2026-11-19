@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
-import { ensureKeys, ensureLoaded, iconKey } from '../assets';
-import { ELEMENT_ICON, RARITY_COLOR, SLOTS, SLOT_LABEL, awiTitle, hex, loadoutFrom, nameOf, perkText, type AWI } from '../awi';
+import { ensureKeys, iconKey } from '../assets';
+import { ELEMENT_ICON, RARITY_COLOR, SLOTS, SLOT_LABEL, awiTitle, hex, nameOf, perkText, type AWI } from '../awi';
 import { DEFAULTS, type SlotId } from '../loadout';
 import { forgetProfile, saveProfile, type Profile } from '../theoswap';
 import { button, text } from '../ui';
@@ -25,7 +25,7 @@ export class LoadoutScene extends Phaser.Scene {
     const keys = [...new Set([...this.profile.awis.map((a) => iconKey(a.slot, a.id)), ...SLOTS.map((s) => iconKey(s, DEFAULTS[s]))])];
     ensureKeys(this, keys, () => this.drawRows());
 
-    button(this, GAME_W - 130, GAME_H - 46, '▶  RUN', () => this.play(), 220, 60, 0xf72585);
+    button(this, GAME_W - 130, GAME_H - 46, '▶  PLAY', () => this.scene.start('Map'), 220, 60, 0xf72585);
     button(this, GAME_W - 330, GAME_H - 46, 'Cards', () => this.scene.start('Reveal', { profile: this.profile }), 140, 48, 0x3a0ca3);
     button(this, 100, GAME_H - 46, '← Menu', () => this.scene.start('Menu'), 150, 48, 0x1b2550);
     button(this, 270, GAME_H - 46, 'Disconnect', () => { forgetProfile(); this.scene.start('Menu'); }, 160, 48, 0x1b2550);
@@ -79,10 +79,5 @@ export class LoadoutScene extends Phaser.Scene {
     this.profile.selection = { ...this.profile.selection, [slot]: a.key };
     saveProfile(this.profile);
     this.drawRows();
-  }
-
-  private play(): void {
-    const lo = loadoutFrom(this.profile.awis, this.profile.selection);
-    ensureLoaded(this, lo, () => this.scene.start('Run', { loadout: lo }));
   }
 }

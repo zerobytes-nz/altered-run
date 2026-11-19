@@ -82,7 +82,15 @@ Still to do:
 - Real art for the sword, hammer, drone, slime, coins, spikes, flag, trinkets and UI, plus background layers.
 - Smaller hero PNGs (about 1 MB per skin now).
 
-### 4. Optional
+### 4. Full game (Jira THEOS-36 to THEOS-41, under the Altered Run epic THEOS-32)
+Turn the demo into a full showcase game (free, no ads): a world map of hand-made stages, bosses, unlocks earned by play.
+- **THEOS-36 (done):** stage format (`src/stages.ts`: lists of `RunScene.spawn` patterns with a seed, so a stage plays
+  the same every time), world map (`MapScene`), 3 stars per stage (finish · every coin · no hits), progress saved on the
+  device (`src/systems/progress.ts`). World 1 has stages 1-1 and 1-2; the rest show "Coming soon". The old random run
+  is "Random run" on the menu, with the high-score table. `?debug` + R on the map resets progress.
+- Next: THEOS-37 World 1 stages and boss · 38 coin shop and unlocks · 39 Worlds 2–4 · 40 Endless, daily run, achievements · 41 art.
+
+### 5. Optional
 - Capacitor app build (Android/iOS).
 - Buying paid AWIs in the game.
 

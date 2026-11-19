@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { GAME_W, GAME_H, GROUND_Y, RUN } from '../config';
+import { GAME_W, GAME_H, GROUND_Y } from '../config';
 import { ensureLoaded, scaleOf } from '../assets';
 import { currentLoadout, loadProfile } from '../theoswap';
 import { loadScores } from '../systems/highscores';
+import { maxStars, totalStars } from '../systems/progress';
 import { button, muteButton, slotRow, text } from '../ui';
 import { canInstall, install, isInstalled, onInstallChange, openInChromeUrl, tryCloseApp } from '../systems/install';
 
@@ -28,17 +29,21 @@ export class MenuScene extends Phaser.Scene {
     text(this, 320, 160, profile ? `YOUR AWIs · ${profile.label}` : 'GUEST LOADOUT', 14, '#ffffff').setOrigin(0, 0.5).setStroke('#2b2440', 4);
     slotRow(this, 320, 190, lo, 72, 14);
 
-    button(this, GAME_W / 2 + 40, 330, '▶  RUN', () => this.play(), 260, 64, 0xf72585);
+    button(this, GAME_W / 2 + 40, 330, '▶  PLAY', () => this.scene.start('Map'), 260, 64, 0xf72585);
     button(this, GAME_W / 2 + 40, 398, profile ? 'My AWIs' : 'Connect TheoSwap', () => {
       if (profile) this.scene.start('Loadout', { profile }); else this.scene.start('Connect');
     }, 260, 50, 0x4361ee);
-    button(this, GAME_W / 2 + 40, 456, 'High scores', () => this.showScores(), 260, 44, 0x3a0ca3);
+    // A random run: today's mixed-up run with the high-score table (becomes Endless mode in THEOS-40).
+    for (const [dx, label, onTap] of [[-67, 'Random run', () => this.play()], [67, 'High scores', () => this.showScores()]] as const) {
+      const b = button(this, GAME_W / 2 + 40 + dx, 456, label, onTap, 126, 44, 0x3a0ca3);
+      (b.list[1] as Phaser.GameObjects.Text).setFontSize(17);
+    }
     text(this, GAME_W - 16, GAME_H - 12, 'Tap = jump · ↓ slide · ATTACK and POWER buttons bottom right', 14, '#ffffff', '700').setOrigin(1, 1).setStroke('#2b2440', 4);
-    text(this, 16, GAME_H - 12, `v0.1 · ${RUN.durationSec}s runs`, 12, '#ffffff', '700').setOrigin(0, 1).setStroke('#2b2440', 3);
+    text(this, 16, GAME_H - 12, `v0.2 · ★ ${totalStars()} / ${maxStars()}`, 12, '#ffffff', '700').setOrigin(0, 1).setStroke('#2b2440', 3);
 
     muteButton(this, GAME_W - 34, 34);
     this.appButtons();
-    this.input.keyboard?.once('keydown-SPACE', () => this.play());
+    this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('Map'));
   }
 
   /** Top corners: "Install app" (until it is installed) and "Exit" (in full screen or the installed app). */

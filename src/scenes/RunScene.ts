@@ -8,6 +8,7 @@ import { bestScore } from '../systems/highscores';
 import { sfx, startMusic, stopMusic } from '../systems/audio';
 import { ShieldBubble } from '../systems/shieldBubble';
 import { muteButton, slotRow, text } from '../ui';
+import { getStage, parseEntry, type Stage } from '../stages';
 import type { RunResult } from './GameOverScene';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -184,10 +185,21 @@ export class RunScene extends Phaser.Scene {
   private powerFx!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bolts!: Phaser.GameObjects.Graphics;
 
+  // Stage mode (world map) vs a random run. In a stage, patterns come from stage.seq in order.
+  private stage: Stage | undefined;
+  private seqIdx = 0;
+  /** All pattern randomness: seeded per stage so it plays the same every time; unseeded in a random run. */
+  private rng = new Phaser.Math.RandomDataGenerator();
+  private coinsSpawned = 0;
+  private hitsTaken = 0;
+
   constructor() { super('Run'); }
 
-  init(data: { loadout?: Loadout }): void {
+  init(data: { loadout?: Loadout; stageId?: string }): void {
     this.lo = data?.loadout ?? guestLoadout();
+    this.stage = getStage(data?.stageId);
+    this.seqIdx = 0; this.coinsSpawned = 0; this.hitsTaken = 0;
+    this.rng = new Phaser.Math.RandomDataGenerator([this.stage ? `stage-${this.stage.id}-${this.stage.seed}` : `${Date.now()}-${Math.random()}`]);
     this.rivals = Object.keys(SKINS).filter((id) => id !== this.lo.skin.id);
     // Reset all per-run state (the scene instance is reused between runs).
     this.obs = []; this.coins = []; this.shots = []; this.flag = null; this.heartImgs = []; this.popups = []; this.flyCoins = [];
@@ -196,7 +208,7 @@ export class RunScene extends Phaser.Scene {
     this.jumpBufferUntil = 0; this.slideQueued = false; this.slideUntil = 0; this.attackUntil = 0; this.attackReadyAt = 0; this.swingId = 0;
     this.invulnUntil = 0; this.visual = ''; this.dead = false; this.ended = false; this.hitStopUntil = 0; this.slowUntil = 0; this.slowScale = 1;
     this.sqX = 1; this.sqY = 1;
-    this.now = 0; this.elapsed = 0; this.speed = RUN.speedStart; this.distance = 0;
+    this.now = 0; this.elapsed = 0; this.speed = this.stage?.speedStart ?? RUN.speedStart; this.distance = 0;
     this.coinCount = 0; this.kills = 0; this.crates = 0; this.bonus = 0; this.hearts = this.lo.hearts;
     this.shield = this.lo.trinket.shield ?? 0; this.shieldRechargeAt = 0; this.combo = 0; this.comboUntil = 0;
     this.meter = 0; this.powerEl = this.lo.element; this.powerUntil = 0; this.coinPullUntil = 0;
@@ -378,7 +390,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   private updateHud(): void {
-    this.progressFill.width = Math.max(1, 220 * Math.min(1, this.elapsed / RUN.durationSec));
+    this.progressFill.width = Math.max(1, 220 * this.progress());
     this.meterFill.width = Math.max(1, 150 * this.meter);
     const ready = this.meter >= 1 && !this.powerActive();
     // POWER ring: fills with the meter, pulses + "READY!" when full, drains while the power runs.
@@ -505,7 +517,7 @@ export class RunScene extends Phaser.Scene {
       ['crate2', p > 0.25 ? 0.8 : 0],
       ['coins', 0.7],
     ];
-    let r = Math.random() * table.reduce((a, [, w]) => a + w, 0);
+    let r = this.rng.frac() * table.reduce((a, [, w]) => a + w, 0);
     let pick = 'spike';
     for (const [k, w] of table) { if ((r -= w) <= 0) { pick = k; break; } }
     return this.spawn(pick, x);
@@ -515,15 +527,15 @@ export class RunScene extends Phaser.Scene {
   spawn(pick: string, x = GAME_W + 80): number {
     const air = (2 * RUN.jumpVelocity) / RUN.gravity; // seconds in the air for one jump
     switch (pick) {
-      case 'spike': this.place('spike', x); if (Math.random() < 0.6) this.coinArc(x); return 60;
-      case 'spike2': this.place('spike', x); this.place('spike', x + 52); if (Math.random() < 0.5) this.coinArc(x + 26); return 110;
-      case 'crate': this.place('crate', x); if (Math.random() < 0.5) this.coinArc(x); return 60;
+      case 'spike': this.place('spike', x); if (this.rng.frac() < 0.6) this.coinArc(x); return 60;
+      case 'spike2': this.place('spike', x); this.place('spike', x + 52); if (this.rng.frac() < 0.5) this.coinArc(x + 26); return 110;
+      case 'crate': this.place('crate', x); if (this.rng.frac() < 0.5) this.coinArc(x); return 60;
       case 'crate2': this.place('crate', x); this.place('crate', x, GROUND_Y - 54); return 60;
       case 'bar': this.place('bar', x, GROUND_Y - 44); this.coinLine(x - 40, GROUND_Y - 20, 4, 30); return 80;
       case 'slime': this.place('slime', x); return 60;
-      case 'fly': {
+      case 'fly': case 'flyLow': case 'flyHigh': {
         // Head height: slide under, or hit it. Now and then a high one guards a coin line.
-        const high = Math.random() < 0.3;
+        const high = pick === 'flyHigh' || (pick === 'fly' && this.rng.frac() < 0.3);
         const o = this.place('fly', x, high ? GROUND_Y - 170 : GROUND_Y - 52);
         o.baseY = o.img.y;
         if (high) this.coinLine(x - 60, GROUND_Y - 200, 4, 34);
@@ -539,7 +551,7 @@ export class RunScene extends Phaser.Scene {
       }
       case 'pit': {
         // Narrow: one well-timed jump clears it.
-        const w = Math.round(this.speed * air * Phaser.Math.FloatBetween(0.45, 0.62));
+        const w = Math.round(this.speed * air * this.rng.realInRange(0.45, 0.62));
         this.placePit(x, w);
         this.coinArcOver(x + w / 2, 3);
         return w + 40;
@@ -552,15 +564,18 @@ export class RunScene extends Phaser.Scene {
         this.coinLine(x + w / 2 - 60, GROUND_Y - 118, 4, 40);
         return w + 60;
       }
-      case 'high': {
+      case 'high': case 'highStep': case 'highTop': {
         // A high ledge full of coins: double jump, or use the low step first. Magnets and pets can pull them down.
-        const step = Math.random() < 0.6;
+        const step = pick === 'highStep' || (pick === 'high' && this.rng.frac() < 0.6);
         if (step) this.place('ledge', x, GROUND_Y - 95 + 44);
         this.place('ledge', x + (step ? 230 : 60), GROUND_Y - 215 + 44);
         this.coinLine(x + (step ? 170 : 0), GROUND_Y - 240, 5, 30);
         return step ? 360 : 220;
       }
-      default: this.coinLine(x, GROUND_Y - 30 - (Math.random() < 0.5 ? 0 : 120), 6, 40); return 240;
+      case 'rest': return 0;
+      case 'coinsLow': this.coinLine(x, GROUND_Y - 30, 6, 40); return 240;
+      case 'coinsHigh': this.coinLine(x, GROUND_Y - 150, 6, 40); return 240;
+      default: this.coinLine(x, GROUND_Y - 30 - (this.rng.frac() < 0.5 ? 0 : 120), 6, 40); return 240;
     }
   }
 
@@ -571,14 +586,17 @@ export class RunScene extends Phaser.Scene {
   }
 
   private coinArc(cx: number): void {
+    this.coinsSpawned += 5;
     for (let i = -2; i <= 2; i++) this.getCoin(cx + i * 34, GROUND_Y - 120 - (4 - i * i) * 14);
   }
 
   private coinArcOver(cx: number, n: number): void {
+    this.coinsSpawned += n;
     for (let i = 0; i < n; i++) { const t = n === 1 ? 0 : i / (n - 1) - 0.5; this.getCoin(cx + t * 110, GROUND_Y - 150 + t * t * 120); }
   }
 
   private coinLine(x: number, y: number, n: number, gap: number): void {
+    this.coinsSpawned += n;
     for (let i = 0; i < n; i++) this.getCoin(x + i * gap, y);
   }
 
@@ -713,6 +731,7 @@ export class RunScene extends Phaser.Scene {
       return;
     }
     this.hearts--;
+    this.hitsTaken++;
     const h = this.heartImgs[this.hearts];
     if (h) { h.setTexture('ui.heartEmpty'); this.bump(h, 1.8); }
     this.invulnUntil = this.now + RUN.hurtInvulnMs;
@@ -787,6 +806,12 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  /** 0 → 1 through the run: patterns placed in a stage, time in a random run. */
+  private progress(): number {
+    if (this.stage) return this.finishing ? 1 : Math.min(1, this.seqIdx / Math.max(1, this.stage.seq.length));
+    return Math.min(1, this.elapsed / RUN.durationSec);
+  }
+
   private endRun(finished: boolean): void {
     if (this.ended) return;
     this.ended = true;
@@ -795,6 +820,12 @@ export class RunScene extends Phaser.Scene {
       score: this.score() + (finished ? SCORE.finishBonus : 0),
       coins: this.coinCount, kills: this.kills + this.crates, distance: this.distance,
       finished, timeSec: this.elapsed, loadout: this.lo,
+      ...(this.stage ? {
+        stageId: this.stage.id,
+        coinsTotal: this.coinsSpawned,
+        hits: this.hitsTaken,
+        stars: [finished, finished && this.coinCount >= this.coinsSpawned, finished && this.hitsTaken === 0],
+      } : {}),
     };
     this.scene.start('GameOver', result);
   }
@@ -814,8 +845,9 @@ export class RunScene extends Phaser.Scene {
     // Speed / time
     if (!this.dead) {
       this.elapsed += dt;
-      const p = Math.min(1, this.elapsed / RUN.durationSec);
-      this.speed = (RUN.speedStart + (RUN.speedEnd - RUN.speedStart) * p) * (this.lo.trinket.speedMul ?? 1)
+      const p = this.progress();
+      const s0 = this.stage?.speedStart ?? RUN.speedStart, s1 = this.stage?.speedEnd ?? RUN.speedEnd;
+      this.speed = (s0 + (s1 - s0) * p) * (this.lo.trinket.speedMul ?? 1)
         * (this.powerActive('Fire') ? POWER.fireSpeed : 1);
     } else {
       this.speed = Math.max(0, this.speed - 900 * dt);
@@ -828,14 +860,26 @@ export class RunScene extends Phaser.Scene {
     this.ground.tilePositionX += dx / this.ground.tileScaleX;
 
     // Spawning / finish line
-    if (!this.finishing && !this.dead) {
+    if (!this.finishing && !this.dead && this.stage) {
+      if ((this.nextSpawn -= dx) <= 0) {
+        if (this.seqIdx >= this.stage.seq.length) {
+          this.finishing = true;
+          this.flag = this.place('flag', GAME_W + 260);
+          this.flag.alive = false;
+        } else {
+          const { pattern, gap } = parseEntry(this.stage.seq[this.seqIdx++], this.stage.gap);
+          const w = this.spawn(pattern);
+          this.nextSpawn = this.speed * gap + w;
+        }
+      }
+    } else if (!this.finishing && !this.dead) {
       if (this.elapsed >= RUN.durationSec) {
         this.finishing = true;
         this.flag = this.place('flag', GAME_W + 260);
         this.flag.alive = false;
       } else if ((this.nextSpawn -= dx) <= 0) {
         const w = this.spawnPattern();
-        const gapSec = Phaser.Math.FloatBetween(0.95, 1.6) * (this.elapsed < 12 ? 1.3 : 1);
+        const gapSec = this.rng.realInRange(0.95, 1.6) * (this.elapsed < 12 ? 1.3 : 1);
         this.nextSpawn = this.speed * gapSec + w;
       }
     }
