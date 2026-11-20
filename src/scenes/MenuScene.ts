@@ -5,6 +5,9 @@ import { currentLoadout, loadProfile } from '../theoswap';
 import { loadScores } from '../systems/highscores';
 import { maxStars, totalStars } from '../systems/progress';
 import { coins } from '../systems/shop';
+import { dailyToday } from '../systems/daily';
+import { ACHIEVEMENTS, earnedCount } from '../systems/achievements';
+import { hasSeen } from '../systems/story';
 import { button, muteButton, slotRow, text } from '../ui';
 import { canInstall, install, isInstalled, onInstallChange, openInChromeUrl, tryCloseApp } from '../systems/install';
 
@@ -30,21 +33,35 @@ export class MenuScene extends Phaser.Scene {
     text(this, 320, 160, profile ? `YOUR AWIs · ${profile.label}` : 'GUEST LOADOUT', 14, '#ffffff').setOrigin(0, 0.5).setStroke('#2b2440', 4);
     slotRow(this, 320, 190, lo, 72, 14);
 
-    button(this, GAME_W / 2 + 40, 330, '▶  PLAY', () => this.scene.start('Map'), 260, 64, 0xf72585);
+    button(this, GAME_W / 2 + 40, 330, '▶  PLAY', () => this.openMap(), 260, 64, 0xf72585);
     button(this, GAME_W / 2 + 40, 398, profile ? 'My AWIs' : 'Connect TheoSwap', () => {
       if (profile) this.scene.start('Loadout', { profile }); else this.scene.start('Connect');
     }, 260, 50, 0x4361ee);
-    // A random run: today's mixed-up run with the high-score table (becomes Endless mode in THEOS-40).
-    for (const [dx, label, onTap] of [[-92, 'Random run', () => this.play()], [0, `Shop ● ${coins()}`, () => this.scene.start('Shop')], [92, 'High scores', () => this.showScores()]] as const) {
-      const b = button(this, GAME_W / 2 + 40 + dx, 456, label, onTap, 88, 44, dx === 0 ? 0x2a9d8f : 0x3a0ca3);
-      (b.list[1] as Phaser.GameObjects.Text).setFontSize(15);
-    }
+    // THEOS-40: Endless (the high-score table), the Daily (same run for everyone today), Shop, Awards, scores.
+    const daily = dailyToday();
+    const row: [string, () => void, number][] = [
+      ['Endless', () => this.play('endless'), 0x3a0ca3],
+      [daily.plays ? `Daily · ${daily.best}` : 'Daily ✦ new', () => this.play('daily'), 0x7209b7],
+      [`Shop ● ${coins()}`, () => this.scene.start('Shop'), 0x2a9d8f],
+      [`🏆 ${earnedCount()}/${ACHIEVEMENTS.length}`, () => this.scene.start('Achievements'), 0x3a0ca3],
+      ['Scores', () => this.showScores(), 0x3a0ca3],
+    ];
+    row.forEach(([label, onTap, fill], i) => {
+      const b = button(this, GAME_W / 2 + 40 + (i - 2) * 96, 456, label, onTap, 90, 44, fill);
+      (b.list[1] as Phaser.GameObjects.Text).setFontSize(14);
+    });
     text(this, GAME_W - 16, GAME_H - 12, 'Tap = jump · ↓ slide · ATTACK and POWER buttons bottom right', 14, '#ffffff', '700').setOrigin(1, 1).setStroke('#2b2440', 4);
     text(this, 16, GAME_H - 12, `v0.2 · ★ ${totalStars()} / ${maxStars()}`, 12, '#ffffff', '700').setOrigin(0, 1).setStroke('#2b2440', 3);
 
     muteButton(this, GAME_W - 34, 34);
     this.appButtons();
-    this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('Map'));
+    this.input.keyboard?.once('keydown-SPACE', () => this.openMap());
+  }
+
+  /** The world map, with the story intro the very first time (THEOS-40). */
+  private openMap(): void {
+    if (!hasSeen('intro')) this.scene.start('Story', { cardId: 'intro', next: { scene: 'Map' } });
+    else this.scene.start('Map');
   }
 
   /** Top corners: "Install app" (until it is installed) and "Exit" (in full screen or the installed app). */
@@ -107,7 +124,7 @@ export class MenuScene extends Phaser.Scene {
     shade.on('pointerup', () => layer.destroy());
   }
 
-  private play(): void {
+  private play(mode: 'endless' | 'daily'): void {
     // Fullscreen + landscape lock need a user gesture; both are best-effort.
     if (this.sys.game.device.input.touch && !this.scale.isFullscreen) {
       try { this.scale.startFullscreen(); } catch { /* not allowed */ }
@@ -115,14 +132,14 @@ export class MenuScene extends Phaser.Scene {
       o?.lock?.('landscape').catch(() => {});
     }
     const lo = currentLoadout();
-    ensureLoaded(this, lo, () => this.scene.start('Run', { loadout: lo }));
+    ensureLoaded(this, lo, () => this.scene.start('Run', { loadout: lo, mode }));
   }
 
   private showScores(): void {
     const layer = this.add.container(0, 0).setDepth(10);
     const shade = this.add.rectangle(0, 0, GAME_W, GAME_H, 0x000000, 0.75).setOrigin(0).setInteractive();
     const panel = this.add.rectangle(GAME_W / 2, GAME_H / 2, 520, 420, 0x1b2550).setStrokeStyle(3, 0x8fa3ff, 0.6);
-    layer.add([shade, panel, text(this, GAME_W / 2, 90, 'HIGH SCORES', 30).setOrigin(0.5)]);
+    layer.add([shade, panel, text(this, GAME_W / 2, 90, 'ENDLESS HIGH SCORES', 30).setOrigin(0.5)]);
     const list = loadScores();
     if (!list.length) layer.add(text(this, GAME_W / 2, GAME_H / 2, 'No runs yet. Go set one!', 20, '#c0c8ff', '600').setOrigin(0.5));
     list.forEach((e, i) => {

@@ -3,12 +3,18 @@ import { GAME_W, GAME_H } from '../config';
 import type { Loadout } from '../loadout';
 import { loadScores, submitScore } from '../systems/highscores';
 import { STAR_GOALS, isUnlocked, recordStage, stageRecord, totalStars, type Stars } from '../systems/progress';
-import { bankCoins, itemName, newlyUnlocked } from '../systems/shop';
+import { bankCoins, coins, itemName, newlyUnlocked } from '../systems/shop';
 import { getStage, nextStage, isBuilt, type Stage } from '../stages';
 import { sfx } from '../systems/audio';
+import { recordDaily, todayKey } from '../systems/daily';
+import { checkAchievements, type AchievementDef } from '../systems/achievements';
 import { button, muteButton, text } from '../ui';
 
+export type RunMode = 'endless' | 'daily';
+
 export interface RunResult {
+  /** Set for runs without a stage (THEOS-40). */
+  mode?: RunMode;
   score: number; coins: number; kills: number; distance: number; finished: boolean; timeSec: number; loadout: Loadout;
   /** Set when the run was a world-map stage. */
   stageId?: string; coinsTotal?: number; hits?: number; stars?: Stars;
@@ -25,14 +31,31 @@ export class GameOverScene extends Phaser.Scene {
     const starsBefore = totalStars();
     if (stage && r.stars) this.stageResult(r, stage, r.stars);
     else this.randomResult(r);
-    this.bank(r, starsBefore);
+    this.toasts(this.bank(r, starsBefore));
     muteButton(this, GAME_W - 34, 34);
   }
 
+  /** Newly earned achievements slide in top right, one after another. */
+  private toasts(list: AchievementDef[]): void {
+    list.forEach((a, i) => {
+      const c = this.add.container(GAME_W + 10, 128).setDepth(30);
+      const bg = this.add.rectangle(0, 0, 300, 54, 0x2a3a7a).setOrigin(0, 0.5).setStrokeStyle(2, 0xffd34d, 0.9);
+      c.add([bg, text(this, 12, -12, `🏆 ${a.name}`, 17, '#ffd34d', '900').setOrigin(0, 0.5),
+        text(this, 12, 12, `${a.desc} · +${a.reward} ●`, 12, '#e8ecff', '600').setOrigin(0, 0.5)]);
+      // One at a time in the same spot, so they never cover the stars or the buttons.
+      const at = 1500 + i * 2600;
+      this.tweens.add({ targets: c, x: GAME_W - 312, duration: 380, delay: at, ease: 'Back.Out', onStart: () => sfx.combo(5) });
+      this.tweens.add({ targets: c, alpha: 0, delay: at + 2200, duration: 400, onComplete: () => c.destroy() });
+    });
+  }
+
   /** Every run's coins go to the shop wallet (THEOS-38); new star goals unlock items. Shown top left. */
-  private bank(r: RunResult, starsBefore: number): void {
-    const total = bankCoins(r.coins);
-    text(this, 20, 20, `+${r.coins} ●  →  ${total} in the shop`, 15, '#ffd34d', '800');
+  private bank(r: RunResult, starsBefore: number): AchievementDef[] {
+    bankCoins(r.coins);
+    // After the run's coins and stars are saved, so goals count this run. Rewards are coins too.
+    const awards = checkAchievements(r);
+    const bonus = awards.reduce((n, a) => n + a.reward, 0);
+    text(this, 20, 20, `+${r.coins} ●${bonus ? ` +${bonus} ● awards` : ''}  →  ${coins()} in the shop`, 15, '#ffd34d', '800');
     const unlocked = newlyUnlocked(starsBefore, totalStars());
     if (unlocked.length) {
       const names = unlocked.map((u) => itemName(u.slot, u.id)).join(', ');
@@ -40,17 +63,27 @@ export class GameOverScene extends Phaser.Scene {
       t.setScale(0);
       this.tweens.add({ targets: t, scale: 1, duration: 380, delay: 1100, ease: 'Back.Out' });
     }
+    return awards;
   }
 
-  /** A random run: score, the high-score table, run again. */
+  /** Endless (the high-score table) or the Daily (today's best): score, then run again. */
   private randomResult(r: RunResult): void {
-    const rank = submitScore({ score: r.score, skin: r.loadout.skin.name, date: Date.now(), finished: r.finished });
-    const best = loadScores()[0]?.score ?? r.score;
+    const daily = r.mode === 'daily';
+    text(this, GAME_W / 2, 26, daily ? `DAILY RUN · ${todayKey()}` : 'ENDLESS', 16, '#8fa3ff', '800').setOrigin(0.5);
     this.heading(r.finished);
     text(this, GAME_W / 2, 140, `${r.score}`, 72, '#ffffff', '900').setOrigin(0.5);
-    text(this, GAME_W / 2, 190, rank === 0 ? '★ NEW HIGH SCORE ★' : rank > 0 ? `#${rank + 1} on your table · best ${best}` : `Best ${best}`, 20, '#ffd34d').setOrigin(0.5);
+    let line: string;
+    if (daily) {
+      const d = recordDaily(r.score);
+      line = d.newBest ? (d.plays > 1 ? "★ NEW BEST FOR TODAY ★" : "Today's best so far") : `Today's best ${d.best} · try ${d.plays}`;
+    } else {
+      const rank = submitScore({ score: r.score, skin: r.loadout.skin.name, date: Date.now(), finished: r.finished });
+      const best = loadScores()[0]?.score ?? r.score;
+      line = rank === 0 ? '★ NEW HIGH SCORE ★' : rank > 0 ? `#${rank + 1} on your table · best ${best}` : `Best ${best}`;
+    }
+    text(this, GAME_W / 2, 190, line, 20, '#ffd34d').setOrigin(0.5);
     this.stats(r, 236);
-    const again = () => this.scene.start('Run', { loadout: r.loadout });
+    const again = () => this.scene.start('Run', { loadout: r.loadout, mode: r.mode });
     this.buttons([['↻  RUN AGAIN', again, 0xf72585, 240], ['Menu', () => this.scene.start('Menu'), 0x3a0ca3, 200]]);
     this.input.keyboard?.once('keydown-SPACE', again);
   }
