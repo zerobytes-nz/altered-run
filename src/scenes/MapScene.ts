@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { hasSeen, worldCard } from '../systems/story';
 import { GAME_W, GAME_H, DEBUG } from '../config';
 import { ensureLoaded } from '../assets';
 import { ELEMENT_COLOR, ELEMENT_ICON, hex } from '../awi';
@@ -139,6 +140,12 @@ export class MapScene extends Phaser.Scene {
       o?.lock?.('landscape').catch(() => {});
     }
     const lo = currentLoadout();
-    ensureLoaded(this, lo, () => this.scene.start('Run', { loadout: lo, stageId: s.id }));
+    const run = { scene: 'Run', data: { loadout: lo, stageId: s.id } };
+    // A new world opens with its story card, once (THEOS-40).
+    const card = s.num === 1 && s.world > 1 ? worldCard(s.world) : undefined;
+    ensureLoaded(this, lo, () => {
+      if (card && !hasSeen(card.id)) this.scene.start('Story', { cardId: card.id, next: run });
+      else this.scene.start(run.scene, run.data);
+    });
   }
 }

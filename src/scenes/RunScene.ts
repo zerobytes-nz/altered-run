@@ -5,11 +5,12 @@ import { guestLoadout, SKINS, type Loadout } from '../loadout';
 import { ELEMENT_COLOR, ELEMENT_ICON, POWER_NAME, hex, type Element } from '../awi';
 import { GestureInput, type Gesture } from '../systems/input';
 import { bestScore } from '../systems/highscores';
+import { dailySeed, dailyToday } from '../systems/daily';
 import { sfx, startMusic, stopMusic } from '../systems/audio';
 import { ShieldBubble } from '../systems/shieldBubble';
 import { muteButton, slotRow, text } from '../ui';
 import { SECRET_GEMS, getStage, parseEntry, type Stage } from '../stages';
-import type { RunResult } from './GameOverScene';
+import type { RunMode, RunResult } from './GameOverScene';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Obstacles. Every kind asks something of the player, and an AWI makes it easier:
@@ -233,6 +234,9 @@ export class RunScene extends Phaser.Scene {
 
   // Stage mode (world map) vs a random run. In a stage, patterns come from stage.seq in order.
   private stage: Stage | undefined;
+  /** Runs without a stage (THEOS-40): Endless (random every time) or the Daily (seeded from the date). */
+  private mode: RunMode = 'endless';
+  private distText?: Phaser.GameObjects.Text;
   private seqIdx = 0;
   /** All pattern randomness: seeded per stage so it plays the same every time; unseeded in a random run. */
   private rng = new Phaser.Math.RandomDataGenerator();
@@ -253,13 +257,15 @@ export class RunScene extends Phaser.Scene {
 
   constructor() { super('Run'); }
 
-  init(data: { loadout?: Loadout; stageId?: string }): void {
+  init(data: { loadout?: Loadout; stageId?: string; mode?: RunMode }): void {
     this.lo = data?.loadout ?? guestLoadout();
     this.stage = getStage(data?.stageId);
+    this.mode = data?.mode === 'daily' ? 'daily' : 'endless';
+    this.distText = undefined;
     this.seqIdx = 0; this.coinsSpawned = 0; this.hitsTaken = 0; this.secretsFound = 0; this.secretsSpawned = 0;
     this.boss = null; this.bossState = 'enter'; this.bossPhase = 0; this.bossQueue = []; this.bossNextAt = 0; this.bossInvulnUntil = 0;
     this.bossBar = undefined; this.bossFill = undefined;
-    this.rng = new Phaser.Math.RandomDataGenerator([this.stage ? `stage-${this.stage.id}-${this.stage.seed}` : `${Date.now()}-${Math.random()}`]);
+    this.rng = new Phaser.Math.RandomDataGenerator([this.stage ? `stage-${this.stage.id}-${this.stage.seed}` : this.mode === 'daily' ? dailySeed() : `${Date.now()}-${Math.random()}`]);
     this.rivals = Object.keys(SKINS).filter((id) => id !== this.lo.skin.id);
     // Reset all per-run state (the scene instance is reused between runs).
     this.obs = []; this.coins = []; this.shots = []; this.flag = null; this.heartImgs = []; this.popups = []; this.flyCoins = [];
@@ -358,7 +364,7 @@ export class RunScene extends Phaser.Scene {
     }
     this.scoreText = text(this, 14, 46, '0', 30, '#ffffff', '900').setStroke('#2b2440', 6);
     this.coinText = text(this, 16, 86, '● 0', 18, '#ffd34d', '800').setStroke('#2b2440', 4);
-    const best = bestScore();
+    const best = !this.stage && this.mode === 'daily' ? dailyToday().best : bestScore();
     const bestT = text(this, 24 + this.lo.hearts * 32, 18, best ? `BEST ${best}` : '', 13, '#ffffff', '700').setStroke('#2b2440', 3);
     // POWER meter under the coins: coins and kills fill it.
     const meterBg = this.add.rectangle(16, 122, 150, 12, 0x2b2440, 0.6).setOrigin(0, 0.5).setStrokeStyle(2, 0xffffff, 0.6);
@@ -370,6 +376,12 @@ export class RunScene extends Phaser.Scene {
     this.progressFill = this.add.rectangle(px, 20, 1, 10, 0x80ffdb).setOrigin(0, 0.5);
     const flag = this.add.image(px + pw + 12, 20, 'obj.flag').setScale(scaleOf('obj.flag') * 0.18);
     hud.add([this.scoreText, this.coinText, bestT, meterBg, this.meterFill, this.meterLabel, track, this.progressFill, flag]);
+    if (!this.stage) {
+      // Endless and Daily have no finish line: show the distance instead.
+      track.setVisible(false); this.progressFill.setVisible(false); flag.setVisible(false);
+      this.distText = text(this, GAME_W / 2, 20, '0 m', 18, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 5);
+      hud.add(this.distText);
+    }
     // The four AWI slots, always on screen.
     const slots = slotRow(this, GAME_W - (4 * 52 + 3 * 14) - 12, 22, this.lo, 52, 14, true, 12);
     slots.setAlpha(0.92);
@@ -430,11 +442,12 @@ export class RunScene extends Phaser.Scene {
   /** A stage starts with its name and what it teaches (the stage tip). */
   private stageBanner(): void {
     const st = this.stage;
-    if (!st) return;
-    const title = text(this, GAME_W / 2, 132, `${st.world}-${st.num} · ${st.name.toUpperCase()}`, 30, '#ffffff', '900')
+    const tip = st ? st.tip : this.mode === 'daily' ? `Same run for everyone today · your best ${dailyToday().best}` : 'No finish line. It only gets faster.';
+    const name = st ? `${st.world}-${st.num} · ${st.name.toUpperCase()}` : this.mode === 'daily' ? 'DAILY RUN' : 'ENDLESS';
+    const title = text(this, GAME_W / 2, 132, name, 30, '#ffffff', '900')
       .setOrigin(0.5).setStroke('#2b2440', 7).setDepth(22);
     const parts: Phaser.GameObjects.Text[] = [title];
-    if (st.tip) parts.push(text(this, GAME_W / 2, 164, st.tip, 17, '#ffd34d', '800').setOrigin(0.5).setStroke('#2b2440', 5).setDepth(22));
+    if (tip) parts.push(text(this, GAME_W / 2, 164, tip, 17, '#ffd34d', '800').setOrigin(0.5).setStroke('#2b2440', 5).setDepth(22));
     for (const t of parts) {
       t.setAlpha(0);
       this.tweens.add({ targets: t, alpha: 1, duration: 250 });
@@ -467,6 +480,7 @@ export class RunScene extends Phaser.Scene {
 
   private updateHud(): void {
     this.progressFill.width = Math.max(1, 220 * this.progress());
+    this.distText?.setText(`${Math.round(this.distance / 10)} m`);
     this.meterFill.width = Math.max(1, 150 * this.meter);
     const ready = this.meter >= 1 && !this.powerActive();
     // POWER ring: fills with the meter, pulses + "READY!" when full, drains while the power runs.
@@ -991,6 +1005,12 @@ export class RunScene extends Phaser.Scene {
     return Math.min(1, this.elapsed / RUN.durationSec);
   }
 
+  /** Endless and Daily: past the usual run length the speed keeps creeping up, by up to 25%. */
+  private overtime(): number {
+    if (this.stage) return 1;
+    return 1 + Math.min(0.25, Math.max(0, this.elapsed - RUN.durationSec) / 400);
+  }
+
   private endRun(finished: boolean): void {
     if (this.ended) return;
     this.ended = true;
@@ -999,6 +1019,7 @@ export class RunScene extends Phaser.Scene {
       score: this.score() + (finished ? SCORE.finishBonus : 0),
       coins: this.coinCount, kills: this.kills + this.crates, distance: this.distance,
       finished, timeSec: this.elapsed, loadout: this.lo,
+      ...(this.stage ? {} : { mode: this.mode }),
       ...(this.stage ? {
         stageId: this.stage.id,
         coinsTotal: this.coinsSpawned,
@@ -1027,7 +1048,7 @@ export class RunScene extends Phaser.Scene {
       this.elapsed += dt;
       const p = this.progress();
       const s0 = this.stage?.speedStart ?? RUN.speedStart, s1 = this.stage?.speedEnd ?? RUN.speedEnd;
-      this.speed = (s0 + (s1 - s0) * p) * (this.lo.trinket.speedMul ?? 1)
+      this.speed = (s0 + (s1 - s0) * p) * this.overtime() * (this.lo.trinket.speedMul ?? 1)
         * (this.powerActive('Fire') ? POWER.fireSpeed : 1);
     } else {
       this.speed = Math.max(0, this.speed - 900 * dt);
@@ -1055,11 +1076,8 @@ export class RunScene extends Phaser.Scene {
         }
       }
     } else if (!this.finishing && !this.dead) {
-      if (this.elapsed >= RUN.durationSec) {
-        this.finishing = true;
-        this.flag = this.place('flag', GAME_W + 260);
-        this.flag.alive = false;
-      } else if ((this.nextSpawn -= dx) <= 0) {
+      // Endless / Daily: patterns forever, until the last heart goes.
+      if ((this.nextSpawn -= dx) <= 0) {
         const w = this.spawnPattern();
         const gapSec = this.rng.realInRange(0.95, 1.6) * (this.elapsed < 12 ? 1.3 : 1);
         this.nextSpawn = this.speed * gapSec + w;

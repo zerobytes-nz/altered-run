@@ -9,6 +9,7 @@ import {
   nextUpgradeCost, resetShop, unlockOf, upgradeLevel,
 } from '../systems/shop';
 import { sfx } from '../systems/audio';
+import { checkAchievements } from '../systems/achievements';
 import { button, muteButton, text } from '../ui';
 
 const TILE = 64;
@@ -63,7 +64,7 @@ export class ShopScene extends Phaser.Scene {
       } else {
         const afford = coins() >= cost;
         const b = button(this, x + w - 72, y + 84, `● ${cost}`, () => {
-          if (buyUpgrade(u.id)) { sfx.combo(level + 2); this.draw(); } else this.flash('Not enough coins yet');
+          if (buyUpgrade(u.id)) { sfx.combo(level + 2); this.awards(); this.draw(); } else this.flash('Not enough coins yet');
         }, 120, 40, afford ? 0x2a9d8f : 0x3a4166);
         (b.list[1] as Phaser.GameObjects.Text).setFontSize(18);
         L.add(b);
@@ -112,6 +113,12 @@ export class ShopScene extends Phaser.Scene {
       else if (u) this.flash(`Earn ★ ${u.stars} or collect ● ${u.cost} to unlock`);
     });
     return c;
+  }
+
+  /** Shop buys can earn achievements too (their coin reward lands in the wallet straight away). */
+  private awards(): void {
+    const got = checkAchievements();
+    if (got.length) this.time.delayedCall(50, () => this.flash(`🏆 ${got.map((a) => `${a.name} +${a.reward} ●`).join(' · ')}`));
   }
 
   private flash(msg: string): void {
