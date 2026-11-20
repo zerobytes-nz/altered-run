@@ -52,6 +52,11 @@ export function slotRow(scene: Phaser.Scene, x: number, y: number, lo: Loadout, 
     c.add([bg, icon]);
     const awi = lo.awis[slotId]; // from an NFT: rarity-coloured frame
     if (awi) c.add(scene.add.rectangle(cx, size / 2, size - 2, size - 2).setStrokeStyle(3, RARITY_COLOR[awi.rarity]));
+    // Where the piece comes from (THEOS-38): an AWI from an NFT, or an item unlocked by playing.
+    const tag = awi ? 'AWI' : lo.earned?.[slotId] ? 'EARNED' : '';
+    if (tag && size >= 48) {
+      c.add(text(scene, cx + size / 2 - 3, size - 3, tag, 9, awi ? '#ffd34d' : '#80ffdb', '900').setOrigin(1, 1).setStroke('#0b1020', 3));
+    }
     if (labels) {
       c.add(text(scene, cx, size + 3, name, labelSize, '#e8ecff').setOrigin(0.5, 0).setStroke('#0b1020', 3));
       c.add(text(scene, cx, -3, slot, Math.max(9, labelSize - 3), '#8fa3ff').setOrigin(0.5, 1).setStroke('#0b1020', 3));

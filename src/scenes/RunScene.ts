@@ -977,7 +977,7 @@ export class RunScene extends Phaser.Scene {
   private addMeter(v: number): void {
     if (this.powerActive()) return;
     const was = this.meter;
-    this.meter = Math.min(1, this.meter + v);
+    this.meter = Math.min(1, this.meter + v * (this.lo.fillMul ?? 1)); // coin shop: Quick POWER
     if (was < 1 && this.meter >= 1) {
       sfx.meterFull();
       this.bump(this.meterLabel, 1.6);

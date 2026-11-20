@@ -92,13 +92,24 @@ export function defaultSelection(awis: AWI[], previous: Selection = {}): Selecti
   return sel;
 }
 
-/** Build the run's Loadout from the selected AWIs. Empty slots use the guest default. */
-export function loadoutFrom(awis: AWI[], sel: Selection): Loadout {
-  const chosen = (slot: SlotId) => awis.find((a) => a.key === sel[slot] && a.slot === slot);
-  const lo = resolveLoadout({
-    skin: chosen('skin')?.id ?? DEFAULTS.skin, weapon: chosen('weapon')?.id ?? DEFAULTS.weapon,
-    pet: chosen('pet')?.id ?? DEFAULTS.pet, trinket: chosen('trinket')?.id ?? DEFAULTS.trinket,
-  });
+/** Selection value for an item unlocked by playing (THEOS-38) instead of an AWI. */
+export const EARNED_PREFIX = 'earned:';
+
+/**
+ * Build the run's Loadout from the selected AWIs. A slot without an AWI uses the earned item picked for it
+ * (`earned:<id>` in the selection, else `earnedFallback`), else the guest default. Earned items are Common:
+ * no rarity bonus and no element.
+ */
+export function loadoutFrom(awis: AWI[], sel: Selection, earnedFallback: Partial<Record<SlotId, string>> = {}): Loadout {
+  const pickedEarned = (slot: SlotId) => (sel[slot]?.startsWith(EARNED_PREFIX) ? sel[slot]!.slice(EARNED_PREFIX.length) : undefined);
+  const chosen = (slot: SlotId) => (pickedEarned(slot) ? undefined : awis.find((a) => a.key === sel[slot] && a.slot === slot));
+  const earnedId = (slot: SlotId) => (chosen(slot) ? undefined : pickedEarned(slot) ?? earnedFallback[slot]);
+  const idFor = (slot: SlotId) => chosen(slot)?.id ?? earnedId(slot) ?? DEFAULTS[slot];
+  const lo = resolveLoadout({ skin: idFor('skin'), weapon: idFor('weapon'), pet: idFor('pet'), trinket: idFor('trinket') });
+  for (const slot of SLOTS) {
+    const id = earnedId(slot);
+    if (id && id !== DEFAULTS[slot]) lo.earned[slot] = true;
+  }
   const tier = (a?: AWI) => (a ? RARITIES.indexOf(a.rarity) : 0); // 0 … 3
   const mult = (a?: AWI) => (a ? RARITY_MULT[a.rarity] : 1);
 
