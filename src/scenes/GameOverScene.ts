@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { GAME_W, GAME_H } from '../config';
 import type { Loadout } from '../loadout';
 import { loadScores, submitScore } from '../systems/highscores';
-import { STAR_GOALS, isUnlocked, recordStage, stageRecord, type Stars } from '../systems/progress';
+import { STAR_GOALS, isUnlocked, recordStage, stageRecord, totalStars, type Stars } from '../systems/progress';
+import { bankCoins, itemName, newlyUnlocked } from '../systems/shop';
 import { getStage, nextStage, isBuilt, type Stage } from '../stages';
 import { sfx } from '../systems/audio';
 import { button, muteButton, text } from '../ui';
@@ -21,9 +22,24 @@ export class GameOverScene extends Phaser.Scene {
   create(r: RunResult): void {
     this.add.rectangle(0, 0, GAME_W, GAME_H, 0x0b1020, 0.92).setOrigin(0);
     const stage = getStage(r.stageId);
+    const starsBefore = totalStars();
     if (stage && r.stars) this.stageResult(r, stage, r.stars);
     else this.randomResult(r);
+    this.bank(r, starsBefore);
     muteButton(this, GAME_W - 34, 34);
+  }
+
+  /** Every run's coins go to the shop wallet (THEOS-38); new star goals unlock items. Shown top left. */
+  private bank(r: RunResult, starsBefore: number): void {
+    const total = bankCoins(r.coins);
+    text(this, 20, 20, `+${r.coins} ●  →  ${total} in the shop`, 15, '#ffd34d', '800');
+    const unlocked = newlyUnlocked(starsBefore, totalStars());
+    if (unlocked.length) {
+      const names = unlocked.map((u) => itemName(u.slot, u.id)).join(', ');
+      const t = text(this, 20, 42, `🔓 Unlocked: ${names}! Pick it in the Shop.`, 15, '#80ffdb', '800');
+      t.setScale(0);
+      this.tweens.add({ targets: t, scale: 1, duration: 380, delay: 1100, ease: 'Back.Out' });
+    }
   }
 
   /** A random run: score, the high-score table, run again. */

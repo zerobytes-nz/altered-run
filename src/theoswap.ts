@@ -7,7 +7,8 @@
 //   • Direct (dev / demos): the browser calls TheoSwap with VITE_THEOSWAP_API_KEY, which Vite puts in the
 //     bundle where anyone can read it. Only ever the TEST key.
 import { defaultSelection, loadoutFrom, parseAwis, type ApiItem, type AWI, type Selection } from './awi';
-import { guestLoadout, type Loadout } from './loadout';
+import { type Loadout } from './loadout';
+import { applyUpgrades, equippedEarned } from './systems/shop';
 import { DEMO_PROFILES, type DemoId } from './demo';
 
 const BASE = (import.meta.env.VITE_THEOSWAP_URL as string | undefined) || 'https://www.theoswap.io';
@@ -102,5 +103,7 @@ export async function connectDemo(id: DemoId): Promise<Profile> {
 /** The loadout for the next run: the connected player's chosen AWIs, or the guest defaults. */
 export function currentLoadout(): Loadout {
   const p = loadProfile();
-  return p ? loadoutFrom(p.awis, p.selection) : guestLoadout();
+  // AWIs first, then items earned by playing, then coin shop upgrades (THEOS-38).
+  const earned = equippedEarned();
+  return applyUpgrades(p ? loadoutFrom(p.awis, p.selection, earned) : loadoutFrom([], {}, earned));
 }

@@ -64,6 +64,10 @@ export interface Loadout {
   powerMul: number;
   /** The AWIs behind each slot; missing = guest default. */
   awis: Partial<Record<SlotId, AWI>>;
+  /** Slots filled with an item unlocked by playing (THEOS-38), not an AWI. */
+  earned: Partial<Record<SlotId, boolean>>;
+  /** POWER meter fill speed (coin shop upgrade). */
+  fillMul: number;
 }
 
 export const DEFAULTS = { skin: 'knight', weapon: 'sword', pet: 'cat', trinket: 'doubleJump' } as const;
@@ -79,6 +83,8 @@ export function resolveLoadout(ids: Partial<Record<SlotId, string>> = {}): Loado
     element: 'Fire',
     powerMul: 1,
     awis: {},
+    earned: {},
+    fillMul: 1,
   };
 }
 

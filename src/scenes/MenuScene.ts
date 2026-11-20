@@ -4,6 +4,7 @@ import { ensureLoaded, scaleOf } from '../assets';
 import { currentLoadout, loadProfile } from '../theoswap';
 import { loadScores } from '../systems/highscores';
 import { maxStars, totalStars } from '../systems/progress';
+import { coins } from '../systems/shop';
 import { button, muteButton, slotRow, text } from '../ui';
 import { canInstall, install, isInstalled, onInstallChange, openInChromeUrl, tryCloseApp } from '../systems/install';
 
@@ -34,9 +35,9 @@ export class MenuScene extends Phaser.Scene {
       if (profile) this.scene.start('Loadout', { profile }); else this.scene.start('Connect');
     }, 260, 50, 0x4361ee);
     // A random run: today's mixed-up run with the high-score table (becomes Endless mode in THEOS-40).
-    for (const [dx, label, onTap] of [[-67, 'Random run', () => this.play()], [67, 'High scores', () => this.showScores()]] as const) {
-      const b = button(this, GAME_W / 2 + 40 + dx, 456, label, onTap, 126, 44, 0x3a0ca3);
-      (b.list[1] as Phaser.GameObjects.Text).setFontSize(17);
+    for (const [dx, label, onTap] of [[-92, 'Random run', () => this.play()], [0, `Shop ● ${coins()}`, () => this.scene.start('Shop')], [92, 'High scores', () => this.showScores()]] as const) {
+      const b = button(this, GAME_W / 2 + 40 + dx, 456, label, onTap, 88, 44, dx === 0 ? 0x2a9d8f : 0x3a0ca3);
+      (b.list[1] as Phaser.GameObjects.Text).setFontSize(15);
     }
     text(this, GAME_W - 16, GAME_H - 12, 'Tap = jump · ↓ slide · ATTACK and POWER buttons bottom right', 14, '#ffffff', '700').setOrigin(1, 1).setStroke('#2b2440', 4);
     text(this, 16, GAME_H - 12, `v0.2 · ★ ${totalStars()} / ${maxStars()}`, 12, '#ffffff', '700').setOrigin(0, 1).setStroke('#2b2440', 3);
