@@ -31,11 +31,11 @@ export class AchievementsScene extends Phaser.Scene {
     });
 
     // Story cards seen so far: tap to watch again.
-    const cards = [STORY.intro, ...WORLDS.slice(1).filter(isWorldOpen).map((w) => worldCard(w.num)!)].filter((c) => c && hasSeen(c.id));
+    const cards = [STORY.intro, ...WORLDS.slice(1).filter(isWorldOpen).map((w) => worldCard(w.num)!), STORY.ending].filter((c) => c && hasSeen(c.id));
     if (cards.length) {
       text(this, 24, GAME_H - 40, 'STORY', 14, '#8fa3ff', '900').setOrigin(0, 0.5);
       cards.forEach((c, i) => {
-        const b = button(this, 140 + i * 150, GAME_H - 40, c.id === 'intro' ? 'Intro' : `World ${c.id.slice(5)}`,
+        const b = button(this, 140 + i * 150, GAME_H - 40, c.id === 'intro' ? 'Intro' : c.id === 'ending' ? 'Ending' : `World ${c.id.slice(5)}`,
           () => this.scene.start('Story', { cardId: c.id, next: { scene: 'Achievements' } }), 136, 40, 0x3a0ca3);
         (b.list[1] as Phaser.GameObjects.Text).setFontSize(16);
       });
