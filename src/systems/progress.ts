@@ -6,7 +6,7 @@ import { ALL_STAGES, WORLDS, isBuilt, type Stage, type World } from '../stages';
 export type Stars = [boolean, boolean, boolean];
 export const STAR_GOALS = ['Finish the stage', 'Collect every coin', 'Take no hits'] as const;
 
-export interface StageRecord { stars: Stars; best: number; plays: number; }
+export interface StageRecord { stars: Stars; best: number; plays: number; /** Most hidden gems found in one run. */ secrets?: number; }
 interface Progress { v: 1; stages: Record<string, StageRecord>; }
 
 const KEY = 'altered-run.progress.v1';
@@ -40,13 +40,13 @@ export const maxStars = (): number => ALL_STAGES.filter(isBuilt).length * 3;
  * Save a finished or failed attempt. Stars are kept once earned (each one can be earned on a different try).
  * Returns which stars were newly earned this time, and whether the score is a new best for the stage.
  */
-export function recordStage(id: string, earned: Stars, score: number): { newStars: Stars; newBest: boolean } {
+export function recordStage(id: string, earned: Stars, score: number, secrets = 0): { newStars: Stars; newBest: boolean } {
   const p = load();
   const old = p.stages[id] ?? { stars: [false, false, false] as Stars, best: 0, plays: 0 };
   const stars = old.stars.map((s, i) => s || earned[i]) as Stars;
   const newStars = earned.map((e, i) => e && !old.stars[i]) as Stars;
   const newBest = earned[0] && score > old.best;
-  p.stages[id] = { stars, best: newBest ? score : old.best, plays: old.plays + 1 };
+  p.stages[id] = { stars, best: newBest ? score : old.best, plays: old.plays + 1, secrets: Math.max(old.secrets ?? 0, secrets) };
   save(p);
   return { newStars, newBest };
 }

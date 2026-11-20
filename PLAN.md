@@ -88,7 +88,13 @@ Turn the demo into a full showcase game (free, no ads): a world map of hand-made
   the same every time), world map (`MapScene`), 3 stars per stage (finish · every coin · no hits), progress saved on the
   device (`src/systems/progress.ts`). World 1 has stages 1-1 and 1-2; the rest show "Coming soon". The old random run
   is "Random run" on the menu, with the high-score table. `?debug` + R on the map resets progress.
-- Next: THEOS-37 World 1 stages and boss · 38 coin shop and unlocks · 39 Worlds 2–4 · 40 Endless, daily run, achievements · 41 art.
+- **THEOS-37 (built, needs a phone play-test):** World 1 is complete: 1-3 Crate Canyon (shield guards: the Hammer smashes
+  them), 1-4 Slime Hollow (swarms: chain-stomp, the Robot's stomp clears them), 1-5 Cinder Bridge (archers on ledges: the
+  Kunai aims up and leads them), 1-6 The Ember Rival (boss: fireballs low/high, ground slam, summons; OPEN after each
+  pattern; 12 HP in 3 phases of 4, so every weapon sees every phase). Hidden gems (`secret`) sit above one jump's reach:
+  the Feather or the Magnet gets them; they score but are not part of the "every coin" star. Each stage has a tip shown on
+  the map and at the start. The new enemies reuse the hero sheets (Altered copies) until THEOS-41 brings real art.
+- Next: 38 coin shop and unlocks · 39 Worlds 2–4 · 40 Endless, daily run, achievements · 41 art.
 
 ### 5. Optional
 - Capacitor app build (Android/iOS).

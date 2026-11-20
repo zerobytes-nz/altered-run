@@ -3,7 +3,7 @@ import { GAME_W, GAME_H, DEBUG } from '../config';
 import { ensureLoaded } from '../assets';
 import { ELEMENT_COLOR, ELEMENT_ICON, hex } from '../awi';
 import { currentLoadout } from '../theoswap';
-import { WORLDS, getStage, isBuilt, type Stage, type World } from '../stages';
+import { WORLDS, getStage, isBuilt, secretsIn, type Stage, type World } from '../stages';
 import { STAR_GOALS, isUnlocked, isWorldOpen, maxStars, resetProgress, stageRecord, starsOf, suggestedStage, totalStars } from '../systems/progress';
 import { button, muteButton, text } from '../ui';
 
@@ -113,9 +113,11 @@ export class MapScene extends Phaser.Scene {
       return;
     }
     STAR_GOALS.forEach((g, i) => {
-      L.add(text(this, 44 + i * 190, y + 18, `${stars[i] ? '★' : '☆'} ${g}`, 16, stars[i] ? '#ffd34d' : '#c0c8ff', '700'));
+      L.add(text(this, 44 + i * 190, y + 24, `${stars[i] ? '★' : '☆'} ${g}`, 16, stars[i] ? '#ffd34d' : '#c0c8ff', '700'));
     });
-    if (rec?.best) L.add(text(this, 44, y + 44, `Best ${rec.best}`, 14, '#8fa3ff', '700'));
+    const extra = [rec?.best ? `Best ${rec.best}` : '', secretsIn(s) ? `◆ ${rec?.secrets ?? 0} / ${secretsIn(s)} secrets` : ''].filter(Boolean).join('   ·   ');
+    if (extra) L.add(text(this, 44, y + 48, extra, 14, '#8fa3ff', '700'));
+    if (s.tip) L.add(text(this, 44, y + 2, s.tip, 13, '#c0c8ff', '600').setWordWrapWidth(GAME_W - 330));
 
     if (open) {
       L.add(button(this, GAME_W - 140, y, '▶  PLAY', () => this.play(), 200, 64, 0xf72585));

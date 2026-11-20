@@ -8,7 +8,7 @@ import { bestScore } from '../systems/highscores';
 import { sfx, startMusic, stopMusic } from '../systems/audio';
 import { ShieldBubble } from '../systems/shieldBubble';
 import { muteButton, slotRow, text } from '../ui';
-import { getStage, parseEntry, type Stage } from '../stages';
+import { SECRET_GEMS, getStage, parseEntry, type Stage } from '../stages';
 import type { RunResult } from './GameOverScene';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,11 +22,19 @@ import type { RunResult } from './GameOverScene';
 //   rock          falls onto its shadow and lands just ahead of you: jump it (smash it; Shield blocks it)
 //   pit           a hole; wide ones have a ledge     (Feather clears them; Fire / Shadow / Ice powers make them safe)
 //   ledge         one-way platform, often with coins (Feather / Magnet / pets reach the coins)
+//   guard         a shield bearer: blocks hits under 3 damage (Hammer smashes it; anyone can jump it)
+//   archer        stands on a high ledge and shoots arrows at you (slide / jump / swat; the Kunai aims up at it)
+//   mite          swarms of small hoppers: chain-stomp them (the Robot's landing stomp clears a swarm)
+//   arrow         an enemy shot: archers' arrows and the boss's fireballs
+//   wave          the boss's ground shake: jump it
+//   boss          World 1's Ember Rival (see updateBoss)
+// Hidden gems (secret pattern) float out of reach of one jump: the Feather or the Magnet gets them.
 // ─────────────────────────────────────────────────────────────────────────────
 /** The hero's coin pickup point is this far above the feet (pickup radius 46 px). */
 const HERO_COIN_Y = 44;
 
-type Kind = 'spike' | 'crate' | 'bar' | 'slime' | 'flag' | 'fly' | 'rival' | 'rock' | 'ledge' | 'pit';
+type Kind = 'spike' | 'crate' | 'bar' | 'slime' | 'flag' | 'fly' | 'rival' | 'rock' | 'ledge' | 'pit'
+  | 'guard' | 'archer' | 'mite' | 'arrow' | 'wave' | 'boss';
 
 interface Ob {
   img: Phaser.GameObjects.Sprite;
@@ -46,11 +54,15 @@ interface Ob {
   minGap: number;   // closest the hero came (for near-miss slow-mo)
   passed: boolean;
   w: number;        // pits: width
+  t: number;        // archers: next shot time (scene ms)
+  n: number;        // archers: shots fired
+  tint: number;     // resting tint (0 = none)
   shadow?: Phaser.GameObjects.Image;
+  prop?: Phaser.GameObjects.Image; // guards: the shield they hold
 }
 
-interface Coin { img: Phaser.GameObjects.Sprite; alive: boolean; pulled: boolean; }
-interface Shot { img: Phaser.GameObjects.Image; alive: boolean; dist: number; }
+interface Coin { img: Phaser.GameObjects.Sprite; alive: boolean; pulled: boolean; secret: boolean; }
+interface Shot { img: Phaser.GameObjects.Image; alive: boolean; dist: number; vx: number; vy: number; }
 
 const HITBOX: Record<Kind, [number, number, number, number]> = {
   spike: [-21, -32, 42, 32],
@@ -59,19 +71,33 @@ const HITBOX: Record<Kind, [number, number, number, number]> = {
   slime: [-22, -36, 44, 36],
   flag: [0, 0, 0, 0],
   fly: [-20, -32, 40, 28],
-  rival: [-30, -205, 60, 205], // a hero sheet at RIVAL_MUL × the hero's size (~205 px tall)
+  rival: [-30, -205, 60, 205], // a hero sheet at 2.4 × the hero's size (~205 px tall)
   rock: [-20, -42, 40, 40],
   ledge: [-94, -44, 188, 10],
   pit: [0, 0, 0, 0],
+  guard: [-22, -94, 44, 94],
+  archer: [-18, -80, 36, 80],
+  mite: [-12, -20, 24, 20],
+  arrow: [-14, -6, 28, 12],   // centred (arrows use origin 0.5, 0.5)
+  wave: [-20, -26, 40, 26],
+  boss: [-40, -240, 80, 240],
 };
 const TEX: Record<Kind, string> = {
   spike: 'obj.spike', crate: 'obj.crate', bar: 'obj.bar', slime: 'enemy.slime', flag: 'obj.flag',
   fly: 'enemy.fly', rival: 'hero.knight.run', rock: 'obj.rock', ledge: 'obj.ledge', pit: 'obj.pit',
+  guard: 'hero.knight.run', archer: 'hero.knight.run', mite: 'enemy.slime', arrow: 'weapon.kunai', wave: 'fx.dot', boss: 'hero.knight.run',
 };
-const HP: Partial<Record<Kind, number>> = { crate: 1, slime: 1, fly: 1, rock: 1, rival: 4 };
-const DAMAGEABLE = new Set<Kind>(['crate', 'slime', 'fly', 'rock', 'rival']);
+const HP: Partial<Record<Kind, number>> = { crate: 1, slime: 1, fly: 1, rock: 1, rival: 4, guard: 4, archer: 1, mite: 1, arrow: 1, boss: 12 };
+const DAMAGEABLE = new Set<Kind>(['crate', 'slime', 'fly', 'rock', 'rival', 'guard', 'archer', 'mite', 'arrow', 'boss']);
 const PLATFORM = new Set<Kind>(['crate', 'ledge']);
-const KILL_SCORE: Partial<Record<Kind, number>> = { slime: SCORE.kill, fly: SCORE.kill, rival: SCORE.kill * 3, crate: SCORE.crate, rock: SCORE.crate };
+/** Enemies (count as "defeated" and squish); the rest of DAMAGEABLE are things you break. */
+const ENEMY = new Set<Kind>(['slime', 'fly', 'rival', 'guard', 'archer', 'mite', 'boss']);
+const KILL_SCORE: Partial<Record<Kind, number>> = {
+  slime: SCORE.kill, fly: SCORE.kill, rival: SCORE.kill * 3, crate: SCORE.crate, rock: SCORE.crate,
+  guard: SCORE.kill * 2, archer: SCORE.kill * 2, mite: 10, arrow: 5, boss: 500,
+};
+/** Enemies drawn with a hero sheet the player did not pick ("Altered" copies), at this size × the hero. */
+const ALTERED: Partial<Record<Kind, number>> = { rival: 2.4, guard: 1.15, archer: 1, boss: 2.9 };
 
 const HERO_HALF_W = 15;
 /** Thumb buttons (bottom right). `pad` = extra touch radius around the drawing. */
@@ -79,9 +105,26 @@ const BTN = {
   attack: { x: GAME_W - 72, y: GAME_H - 70, r: 56, pad: 44 },
   power: { x: GAME_W - 200, y: GAME_H - 52, r: 42, pad: 32 },
 };
-/** Rivals are the hero sheets drawn this many times bigger, flipped to face left, in an "Altered" purple. */
-const RIVAL_MUL = 2.4;
+/** Rivals, guards and archers are hero sheets flipped to face left, in an "Altered" purple; the boss glows ember. */
 const RIVAL_TINT = 0xa58cff;
+const BOSS_TINT = 0xff9566;
+const BOSS_OPEN_TINT = 0x8c93b8;
+const MITE_TINT = 0xffa060;
+/** Guards block hits weaker than this (the Hammer does 4; a Legendary Sword 3). */
+const GUARD_ARMOUR = 3;
+const SECRET_TINT = 0xd28cff;
+const SECRET_SCORE = 50;
+/** Boss: 12 HP in three phases of 4. Each OPEN window can take at most the rest of the current phase. */
+const BOSS_PHASE_HP = 4;
+const BOSS_HOME_X = GAME_W - 170;
+type BossState = 'enter' | 'attack' | 'open' | 'retreat';
+const BOSS_ATTACKS: string[][] = [
+  ['throwLow', 'throwHigh', 'throwLow'],
+  ['throwHigh', 'slam', 'throwLow', 'summon'],
+  ['slam', 'throwLow', 'throwHigh', 'slam', 'summon', 'throwLow'],
+];
+const BOSS_GAP_MS = [1250, 1000, 820];
+const BOSS_OPEN_MS = [2800, 2400, 2000];
 const ICE_TINT = 0x9fe8ff;
 /** Seconds between a rock landing and the hero reaching it. */
 const ROCK_LEAD_S = 0.5;
@@ -195,13 +238,27 @@ export class RunScene extends Phaser.Scene {
   private rng = new Phaser.Math.RandomDataGenerator();
   private coinsSpawned = 0;
   private hitsTaken = 0;
+  private secretsFound = 0;
+  private secretsSpawned = 0;
+
+  // Boss (stage entry "boss"): no other patterns spawn while it is alive.
+  private boss: Ob | null = null;
+  private bossState: BossState = 'enter';
+  private bossPhase = 0;          // 0, 1, 2
+  private bossQueue: string[] = [];
+  private bossNextAt = 0;         // scene ms of the next attack / state change
+  private bossInvulnUntil = 0;
+  private bossBar?: Phaser.GameObjects.Container;
+  private bossFill?: Phaser.GameObjects.Rectangle;
 
   constructor() { super('Run'); }
 
   init(data: { loadout?: Loadout; stageId?: string }): void {
     this.lo = data?.loadout ?? guestLoadout();
     this.stage = getStage(data?.stageId);
-    this.seqIdx = 0; this.coinsSpawned = 0; this.hitsTaken = 0;
+    this.seqIdx = 0; this.coinsSpawned = 0; this.hitsTaken = 0; this.secretsFound = 0; this.secretsSpawned = 0;
+    this.boss = null; this.bossState = 'enter'; this.bossPhase = 0; this.bossQueue = []; this.bossNextAt = 0; this.bossInvulnUntil = 0;
+    this.bossBar = undefined; this.bossFill = undefined;
     this.rng = new Phaser.Math.RandomDataGenerator([this.stage ? `stage-${this.stage.id}-${this.stage.seed}` : `${Date.now()}-${Math.random()}`]);
     this.rivals = Object.keys(SKINS).filter((id) => id !== this.lo.skin.id);
     // Reset all per-run state (the scene instance is reused between runs).
@@ -276,9 +333,10 @@ export class RunScene extends Phaser.Scene {
     for (let i = 0; i < 40; i++) this.getCoin(-200, -200);
     for (const o of this.obs) this.free(o);
     for (const c of this.coins) { c.alive = false; c.img.setActive(false).setVisible(false); }
-    for (let i = 0; i < 4; i++) this.shots.push({ img: this.add.image(-100, -100, wKey).setScale(scaleOf(wKey)).setDepth(6).setVisible(false), alive: false, dist: 0 });
+    for (let i = 0; i < 4; i++) this.shots.push({ img: this.add.image(-100, -100, wKey).setScale(scaleOf(wKey)).setDepth(6).setVisible(false), alive: false, dist: 0, vx: 1, vy: 0 });
 
     this.buildHud();
+    this.stageBanner();
     this.gestures = new GestureInput(this);
     this.gestures.claim = (p) => this.claimTouch(p);
     startMusic();
@@ -369,6 +427,21 @@ export class RunScene extends Phaser.Scene {
     return false;
   }
 
+  /** A stage starts with its name and what it teaches (the stage tip). */
+  private stageBanner(): void {
+    const st = this.stage;
+    if (!st) return;
+    const title = text(this, GAME_W / 2, 132, `${st.world}-${st.num} · ${st.name.toUpperCase()}`, 30, '#ffffff', '900')
+      .setOrigin(0.5).setStroke('#2b2440', 7).setDepth(22);
+    const parts: Phaser.GameObjects.Text[] = [title];
+    if (st.tip) parts.push(text(this, GAME_W / 2, 164, st.tip, 17, '#ffd34d', '800').setOrigin(0.5).setStroke('#2b2440', 5).setDepth(22));
+    for (const t of parts) {
+      t.setAlpha(0);
+      this.tweens.add({ targets: t, alpha: 1, duration: 250 });
+      this.tweens.add({ targets: t, alpha: 0, delay: 3600, duration: 500, onComplete: () => t.destroy() });
+    }
+  }
+
   /** The first few runs: point at the controls for a few seconds (phones have no keys to discover). */
   private showControlsHint(): void {
     const KEY = 'altered-run.hints.v1';
@@ -411,6 +484,7 @@ export class RunScene extends Phaser.Scene {
     this.attackBtn.setAlpha(left > 0 ? 0.7 : 1);
     if (this.dead || this.ended) { this.attackBtn.setAlpha(0.25); this.powerBtn.setAlpha(0.25).setScale(1); }
     this.vignette.setAlpha(this.hearts === 1 && !this.dead ? 0.55 + Math.sin(this.now / 160) * 0.35 : 0);
+    if (this.boss && this.bossFill) this.bossFill.width = Math.max(1, 296 * (this.boss.hp / (HP.boss ?? 12)));
     if (++this.hudTick % 6 !== 0) return; // text re-rasterises: update ~10×/s, only on change
     const s = this.score();
     if (s !== this.lastScoreShown) { this.scoreText.setText(String(s)); this.lastScoreShown = s; }
@@ -449,23 +523,36 @@ export class RunScene extends Phaser.Scene {
       o = {
         img: this.add.sprite(0, 0, TEX[kind]).setDepth(4), kind, alive: true, hx: 0, hy: 0, hw: 0, hh: 0, vx: 0, vy: 0,
         hp: 1, kick: 0, swing: -1, baseY: 0, falling: false, armed: false, frozen: false, minGap: 1e9, passed: false, w: 0, skin: '',
+        t: 0, n: 0, tint: 0,
       };
       this.obs.push(o);
     }
     this.tweens.killTweensOf(o.img);
     const [hx, hy, hw, hh] = HITBOX[kind];
+    const altered = ALTERED[kind];
     Object.assign(o, { kind, alive: true, hx, hy, hw, hh, vx: 0, vy: 0, hp: HP[kind] ?? 1, kick: 0, swing: -1, falling: false, armed: false,
-      frozen: this.powerActive('Ice'), minGap: 1e9, passed: false, w: 0,
-      skin: kind === 'rival' ? Phaser.Utils.Array.GetRandom(this.rivals) : '' });
-    const tex = kind === 'rival' ? `hero.${o.skin}.run` : TEX[kind];
-    const scale = kind === 'rival' ? scaleOf(tex) * RIVAL_MUL : scaleOf(tex);
+      frozen: this.powerActive('Ice'), minGap: 1e9, passed: false, w: 0, t: 0, n: 0,
+      tint: kind === 'boss' ? BOSS_TINT : altered ? RIVAL_TINT : kind === 'mite' ? MITE_TINT : kind === 'arrow' ? 0xff6b6b : kind === 'wave' ? 0xff7a45 : 0,
+      skin: altered ? Phaser.Utils.Array.GetRandom(this.rivals) : '' });
+    const tex = altered ? `hero.${o.skin}.run` : TEX[kind];
+    const scale = scaleOf(tex) * (altered ?? (kind === 'mite' ? 0.55 : 1));
     o.img.anims.stop();
-    o.img.setActive(true).setVisible(true).setAlpha(1).setAngle(0).setOrigin(0.5, 1).setFlipX(kind === 'rival').setTexture(tex, 0).setScale(scale)
+    o.img.setActive(true).setVisible(true).setAlpha(1).setAngle(0).setOrigin(0.5, kind === 'arrow' ? 0.5 : 1)
+      .setFlipX(!!altered || kind === 'arrow').setTexture(tex, 0).setScale(scale)
       .setDepth(kind === 'pit' ? 1 : kind === 'ledge' ? 3 : 4);
     this.baseTint(o);
+    o.prop?.setVisible(false);
+    o.img.setBlendMode(Phaser.BlendModes.NORMAL);
     if (kind === 'slime') { o.img.play(TEX.slime); o.vx = -70; }
+    if (kind === 'mite') { o.img.play(TEX.slime); o.vx = -60; }
     if (kind === 'fly') { o.img.play(TEX.fly); o.vx = -90; }
     if (kind === 'rival') { o.img.play(tex); o.vx = -40; }
+    if (kind === 'guard') {
+      o.img.play(tex); o.vx = -45;
+      o.prop ??= this.add.image(0, 0, 'trinket.shield').setDepth(5);
+      o.prop.setVisible(true).setAlpha(1).setAngle(0).setTint(0xd0d6ff).setScale(scaleOf('trinket.shield') * 1.5);
+    }
+    if (kind === 'boss') o.img.play(tex);
     if (o.frozen) o.img.anims.pause();
     return o;
   }
@@ -473,24 +560,25 @@ export class RunScene extends Phaser.Scene {
   /** The tint an obstacle shows when nothing is flashing it. */
   private baseTint(o: Ob): void {
     if (o.frozen) o.img.setTint(ICE_TINT);
-    else if (o.kind === 'rival') o.img.setTint(RIVAL_TINT);
+    else if (o.tint) o.img.setTint(o.tint);
     else o.img.clearTint();
   }
 
   private free(o: Ob): void {
     o.img.setActive(false).setVisible(false); o.alive = false;
     o.shadow?.setVisible(false);
+    o.prop?.setVisible(false);
     if (o === this.flag) this.flag = null;
   }
 
   private getCoin(x: number, y: number): Coin {
     let c = this.coins.find((k) => !k.img.active);
     if (!c) {
-      c = { img: this.add.sprite(0, 0, 'obj.coin').setDepth(3).setScale(scaleOf('obj.coin')).play('obj.coin'), alive: true, pulled: false };
+      c = { img: this.add.sprite(0, 0, 'obj.coin').setDepth(3).setScale(scaleOf('obj.coin')).play('obj.coin'), alive: true, pulled: false, secret: false };
       this.coins.push(c);
     }
-    c.alive = true; c.pulled = false;
-    c.img.setActive(true).setVisible(true).setPosition(x, y);
+    c.alive = true; c.pulled = false; c.secret = false;
+    c.img.setActive(true).setVisible(true).setPosition(x, y).clearTint().setScale(scaleOf('obj.coin'));
     return c;
   }
 
@@ -518,6 +606,10 @@ export class RunScene extends Phaser.Scene {
       ['widePit', p > 0.3 ? 1.1 : 0],
       ['spike2', p > 0.3 ? 1.1 : 0],
       ['crate2', p > 0.25 ? 0.8 : 0],
+      ['guard', p > 0.2 ? 0.8 : 0],
+      ['swarm', p > 0.25 ? 0.8 : 0],
+      ['archer', p > 0.3 ? 0.7 : 0],
+      ['secret', p > 0.15 ? 0.25 : 0],
       ['coins', 0.7],
     ];
     let r = this.rng.frac() * table.reduce((a, [, w]) => a + w, 0);
@@ -575,11 +667,54 @@ export class RunScene extends Phaser.Scene {
         this.coinLine(x + (step ? 170 : 0), GROUND_Y - 240, 5, 30);
         return step ? 360 : 220;
       }
+      case 'guard': this.place('guard', x); if (this.rng.frac() < 0.5) this.coinArc(x); return 70;
+      case 'guard2': this.place('guard', x); this.place('guard', x + 130); return 190;
+      case 'guardBar':
+        // Jump the guard, land, then slide under the bar. A Hammer just smashes the guard.
+        this.place('guard', x);
+        this.place('bar', x + 400, GROUND_Y - 44); this.coinLine(x + 360, GROUND_Y - 20, 4, 30);
+        return 460;
+      case 'swarm': case 'swarmBig': {
+        const n = pick === 'swarmBig' ? 7 : 5;
+        for (let i = 0; i < n; i++) { const o = this.place('mite', x + i * 44); o.baseY = GROUND_Y; }
+        return n * 44 + 30;
+      }
+      case 'archer': case 'archerPit': {
+        // A high ledge with an archer on it. archerPit: a pit underneath, so you can't just stand and wait.
+        let ax = x + 60;
+        if (pick === 'archerPit') {
+          const w = Math.round(this.speed * air * 0.5);
+          this.placePit(x, w); this.coinArcOver(x + w / 2, 3);
+          ax = x + w + 140;
+        }
+        this.placeArcher(ax);
+        return ax - x + 140;
+      }
+      case 'archer2': this.placeArcher(x + 60); this.placeArcher(x + 380); return 520;
+      case 'secret': {
+        // Hidden gems, too high for one jump: the Feather's extra jump or the Magnet reaches them. A faint sparkle hints.
+        this.secretsSpawned += SECRET_GEMS;
+        for (let i = 0; i < SECRET_GEMS; i++) {
+          const c = this.getCoin(x + i * 36, GROUND_Y - 322 - (i === 1 ? 10 : 0));
+          c.secret = true;
+          c.img.setTint(SECRET_TINT).setScale(scaleOf('obj.coin') * 1.15);
+        }
+        return 120;
+      }
+      case 'boss': this.startBoss(); return 0;
       case 'rest': return 0;
       case 'coinsLow': this.coinLine(x, GROUND_Y - 30, 6, 40); return 240;
       case 'coinsHigh': this.jumpArc(x + 100, 6, 40); return 240;
       default: if (this.rng.frac() < 0.5) this.coinLine(x, GROUND_Y - 30, 6, 40); else this.jumpArc(x + 100, 6, 40); return 240;
     }
+  }
+
+  /** A high ledge (double-jump height) with an archer standing on it. */
+  private placeArcher(x: number): void {
+    const top = GROUND_Y - 215;
+    this.place('ledge', x, top + 44);
+    const a = this.place('archer', x, top);
+    a.img.anims.stop(); a.img.setFrame(0);
   }
 
   private placePit(x: number, w: number): void {
@@ -666,7 +801,20 @@ export class RunScene extends Phaser.Scene {
     cam.scrollX = -5; this.tweens.add({ targets: cam, scrollX: 0, duration: 90 });
     if (w.thrown) {
       const s = this.shots.find((k) => !k.alive);
-      if (s) { s.alive = true; s.dist = 0; s.img.setVisible(true).setPosition(this.hero.x + 18, this.hero.y - 52).setAngle(0).setTint(w.tint); }
+      if (s) {
+        const sx = this.hero.x + 18, sy = this.hero.y - 52;
+        // The Kunai's reach: it aims up at the nearest archer in range (melee can't reach a ledge from the ground).
+        let vx = 1, vy = 0;
+        const target = this.obs.find((o) => o.img.active && o.alive && o.kind === 'archer' && o.img.x > sx + 40
+          && Phaser.Math.Distance.Between(sx, sy, o.img.x, o.img.y - 40) < w.range);
+        if (target) {
+          // Lead the target: it scrolls left while the kunai flies.
+          const ty = target.img.y - 40, t = Phaser.Math.Distance.Between(sx, sy, target.img.x, ty) / 1150;
+          const a = Math.atan2(ty - sy, target.img.x - this.speed * t - sx); vx = Math.cos(a); vy = Math.sin(a);
+        }
+        s.alive = true; s.dist = 0; s.vx = vx; s.vy = vy;
+        s.img.setVisible(true).setPosition(sx, sy).setAngle(Phaser.Math.RadToDeg(Math.atan2(vy, vx))).setTint(w.tint);
+      }
       this.attackUntil = this.now + 160;
       sfx.throw();
       return;
@@ -770,6 +918,8 @@ export class RunScene extends Phaser.Scene {
   /** Damage an obstacle; returns true if it was destroyed. */
   private damage(o: Ob, dmg: number, byPower = false, kick = 170): boolean {
     if (!o.alive) return false;
+    if (o.kind === 'guard' && !byPower && dmg < GUARD_ARMOUR) { this.blocked(o); return false; }
+    if (o.kind === 'boss') return this.damageBoss(o, dmg, byPower);
     o.hp -= dmg;
     const col = hex(ELEMENT_COLOR[this.powerEl]);
     this.popup(o.img.x, o.img.y + o.hy - 10, byPower ? ELEMENT_ICON[this.powerEl] : `-${Math.min(dmg, 9)}`, byPower ? col : '#ffffff', 22);
@@ -783,12 +933,25 @@ export class RunScene extends Phaser.Scene {
     return false;
   }
 
+  /** A hit that bounced off a guard's shield. */
+  private blocked(o: Ob): void {
+    this.popup(o.img.x, o.img.y + o.hy - 14, 'BLOCKED', '#c0c8ff', 18);
+    if (o.prop) { o.prop.setTintFill(0xffffff); this.time.delayedCall(80, () => o.prop?.setTint(0xd0d6ff)); }
+    o.kick += 60;
+    sfx.clang(); this.hitStop(35);
+  }
+
   private kill(o: Ob): void {
     o.alive = false;
-    if (o.kind === 'slime' || o.kind === 'fly' || o.kind === 'rival') {
+    if (ENEMY.has(o.kind)) {
       this.kills++;
-      if (o.kind === 'rival') sfx.crash(); else sfx.squish();
-    } else { this.crates++; sfx.smash(); }
+      if (o.kind === 'rival' || o.kind === 'guard' || o.kind === 'boss') sfx.crash(); else sfx.squish();
+    } else if (o.kind === 'arrow') { sfx.clang(); }
+    else { this.crates++; sfx.smash(); }
+    if (o.prop?.visible) {
+      const pr = o.prop;
+      this.tweens.add({ targets: pr, x: pr.x + 60, y: pr.y - 90, angle: 200, alpha: 0, duration: 420, onComplete: () => pr.setVisible(false) });
+    }
     // Combo: kills close together score more.
     this.combo = this.now < this.comboUntil ? this.combo + 1 : 1;
     this.comboUntil = this.now + 1700;
@@ -804,9 +967,10 @@ export class RunScene extends Phaser.Scene {
     this.addMeter(POWER.perKill);
     o.shadow?.setVisible(false);
     o.img.clearTint();
-    this.hitFx.explode(o.kind === 'rival' ? 26 : 14, o.img.x, o.img.y - 24);
-    this.cameras.main.shake(70, o.kind === 'rival' ? 0.01 : 0.004);
-    this.hitStop(o.kind === 'rival' ? 90 : 45);
+    const big = o.kind === 'rival' || o.kind === 'guard' || o.kind === 'boss';
+    this.hitFx.explode(big ? 26 : 14, o.img.x, o.img.y - 24);
+    this.cameras.main.shake(70, big ? 0.01 : 0.004);
+    this.hitStop(big ? 90 : 45);
     this.tweens.add({ targets: o.img, alpha: 0, y: o.img.y - 50, angle: 80, duration: 260 });
   }
 
@@ -839,6 +1003,7 @@ export class RunScene extends Phaser.Scene {
         stageId: this.stage.id,
         coinsTotal: this.coinsSpawned,
         hits: this.hitsTaken,
+        secrets: this.secretsFound, secretsTotal: this.secretsSpawned,
         stars: [finished, finished && this.coinCount >= this.coinsSpawned, finished && this.hitsTaken === 0],
       } : {}),
     };
@@ -875,7 +1040,9 @@ export class RunScene extends Phaser.Scene {
     this.ground.tilePositionX += dx / this.ground.tileScaleX;
 
     // Spawning / finish line
-    if (!this.finishing && !this.dead && this.stage) {
+    if (this.boss) {
+      // Nothing else spawns during the boss fight.
+    } else if (!this.finishing && !this.dead && this.stage) {
       if ((this.nextSpawn -= dx) <= 0) {
         if (this.seqIdx >= this.stage.seq.length) {
           this.finishing = true;
@@ -1047,19 +1214,30 @@ export class RunScene extends Phaser.Scene {
     for (let i = 0; i < this.obs.length; i++) {
       const o = this.obs[i];
       if (!o.img.active) continue;
-      // Movement: world scroll + own motion + knock-back
-      const own = o.frozen ? 0 : o.vx;
-      o.img.x -= dx - own * dt;
-      if (o.kick > 0) { const k = Math.min(o.kick, 1400 * dt); o.img.x += k; o.kick -= k; }
+      if (o.kind === 'boss') { if (o.alive) this.updateBoss(o, dt, now); }
+      else {
+        // Movement: world scroll + own motion + knock-back
+        const own = o.frozen ? 0 : o.vx;
+        o.img.x -= dx - own * dt;
+        if (o.kick > 0) { const k = Math.min(o.kick, 1400 * dt); o.img.x += k; o.kick -= k; }
+      }
       if (o.kind === 'fly' && !o.frozen && o.alive) o.img.y = o.baseY + Math.sin(now / 180 + i) * 8;
+      if (o.kind === 'mite' && !o.frozen && o.alive) o.img.y = o.baseY - Math.abs(Math.sin(now / 130 + i * 0.9)) * 14;
       if (o.kind === 'rock') this.updateRock(o, dt, h);
+      if (o.kind === 'archer' && o.alive && !o.frozen) this.updateArcher(o, now);
+      if (o.kind === 'arrow' && !o.frozen && o.alive) {
+        o.img.y += o.vy * dt;
+        if (o.img.y > GROUND_Y - 4) { o.alive = false; o.vx = 0; o.vy = 0; this.tweens.add({ targets: o.img, alpha: 0, duration: 300 }); }
+      }
+      if (o.kind === 'wave' && o.alive && !o.frozen && ((now / 40) | 0) % 2) this.dustFx.explode(1, o.img.x, GROUND_Y - 4);
+      if (o.prop?.visible && o.alive) o.prop.setPosition(o.img.x - 24, o.img.y - 44).setAngle(Math.sin(now / 150) * 4);
       if (o.kind === 'rival' && o.alive && !o.frozen && !o.armed && o.img.x - h.x < 230) {
         o.armed = true;
         o.img.play({ key: `hero.${o.skin}.attack`, frameRate: 16 }).chain(`hero.${o.skin}.run`);
         sfx.whistle();
       }
       const right = o.kind === 'pit' ? o.img.x + o.w : o.img.x + 120;
-      if (right < -60) { this.free(o); continue; }
+      if (right < -60 || (o.kind === 'arrow' && o.img.y > GAME_H + 40)) { this.free(o); continue; }
       if (!o.alive || this.dead) continue;
 
       const ol = o.img.x + o.hx, ot = o.img.y + o.hy, or = ol + o.hw, ob = ot + o.hh;
@@ -1083,7 +1261,8 @@ export class RunScene extends Phaser.Scene {
       if (!overlap) continue;
       // Powers: Fire smashes everything it touches, Ice-frozen things shatter, Shadow passes through.
       if (fire && DAMAGEABLE.has(o.kind)) { this.damage(o, 99, true); continue; }
-      if (o.frozen && DAMAGEABLE.has(o.kind)) { this.kill(o); continue; }
+      if (o.frozen && o.kind === 'boss') continue; // a frozen boss is just in the way for a moment
+      if (o.frozen && (DAMAGEABLE.has(o.kind) || o.kind === 'wave')) { this.kill(o); continue; }
       if (PLATFORM.has(o.kind) && this.vy >= 0 && hb - this.vy * dt <= ot + 12) {
         // Landing on top of a crate or ledge counts as standing on it.
         const fallVy = this.vy;
@@ -1094,14 +1273,19 @@ export class RunScene extends Phaser.Scene {
       if (o.kind === 'ledge') continue; // one-way: pass through from below and the sides
       if (ghost || fire) continue;
       // Stomp a slime / fly, or bounce off an armour's head, by landing on it.
-      if ((o.kind === 'slime' || o.kind === 'rival' || o.kind === 'fly') && this.vy > 0 && hb - this.vy * dt <= ot + 16) {
-        if (o.kind !== 'rival') this.kill(o); else if (this.lo.skin.stomp) this.damage(o, 2);
+      if ((o.kind === 'slime' || o.kind === 'rival' || o.kind === 'fly' || o.kind === 'mite' || o.kind === 'guard' || o.kind === 'archer' || o.kind === 'boss')
+        && this.vy > 0 && hb - this.vy * dt <= ot + 16) {
+        // Small things squash; armour (rival, guard) and the boss only take the Robot's heavy stomp.
+        if (o.kind === 'slime' || o.kind === 'fly' || o.kind === 'mite' || o.kind === 'archer') this.kill(o);
+        else if (this.lo.skin.stomp) this.damage(o, 2, o.kind === 'guard');
+        else if (o.kind === 'boss') this.damage(o, 1);
         this.vy = -RUN.airJumpVelocity * 0.85; this.onGround = false; this.sqX = 0.8; this.sqY = 1.2;
         this.airJumps = this.lo.trinket.airJumps ?? 0;
         continue;
       }
       this.hurt();
-      if (o.kind === 'rival' || o.kind === 'rock') { o.alive = false; this.tweens.add({ targets: o.img, alpha: 0.3, duration: 200 }); }
+      if (o.kind === 'rival' || o.kind === 'rock' || o.kind === 'guard') { o.alive = false; this.tweens.add({ targets: o.img, alpha: 0.3, duration: 200 }); o.prop?.setAlpha(0.3); }
+      if (o.kind === 'arrow' || o.kind === 'wave') { o.alive = false; o.img.setAlpha(0.3); }
     }
     // Walked off the end of a crate or ledge → start falling.
     if (this.onGround && h.y < GROUND_Y && !this.onPlatform()) this.onGround = false;
@@ -1118,7 +1302,7 @@ export class RunScene extends Phaser.Scene {
       if (!c.alive || this.dead) continue;
       const ddx = h.x - img.x, ddy = hcy - img.y;
       const d2 = ddx * ddx + ddy * ddy;
-      if ((magnet && d2 < magnet * magnet) || (pullAll && img.x < GAME_W)) c.pulled = true;
+      if ((magnet && d2 < magnet * magnet) || (pullAll && !c.secret && img.x < GAME_W)) c.pulled = true;
       if (c.pulled) {
         const d = Math.sqrt(d2) || 1, step = Math.min(d, 900 * dt);
         img.x += (ddx / d) * step; img.y += (ddy / d) * step;
@@ -1147,11 +1331,190 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  /** Archers wait until you are in range, flash, then shoot at where you are (up to two shots). */
+  private updateArcher(o: Ob, now: number): void {
+    const d = o.img.x - this.hero.x;
+    if (!o.armed) {
+      if (d < 640 && o.img.x < GAME_W - 30) { o.armed = true; o.t = now + 380; this.telegraph(o); }
+      return;
+    }
+    if (o.n >= 2 || now < o.t || d < 150) return;
+    o.n++; o.t = now + 1150;
+    o.img.play({ key: `hero.${o.skin}.attack`, frameRate: 24 });
+    this.shoot(o.img.x - 20, o.img.y - 50, this.hero.x, GROUND_Y - 60, 520, 'arrow');
+    if (o.n < 2) this.time.delayedCall(Math.max(0, o.t - now - 380), () => { if (o.alive && o.img.active) this.telegraph(o); });
+  }
+
+  /** A quick white flash and "!" so a shot never comes without warning. */
+  private telegraph(o: Ob): void {
+    o.img.setTintFill(0xffffff);
+    this.time.delayedCall(90, () => this.baseTint(o));
+    this.popup(o.img.x, o.img.y + o.hy - 16, '!', '#ff6b81', 26);
+    sfx.whistle();
+  }
+
+  /**
+   * An enemy shot from (x, y) that reaches (tx, ty) on screen at `screenSpeed` px/s, in a straight line.
+   * Things move left with the world, so the shot's own speed adds the run speed back.
+   */
+  private shoot(x: number, y: number, tx: number, ty: number, screenSpeed: number, look: 'arrow' | 'fireball'): void {
+    const o = this.getOb('arrow');
+    o.img.setPosition(x, y);
+    const dx = tx - x, dy = ty - y, d = Math.hypot(dx, dy) || 1, T = d / screenSpeed;
+    o.vx = dx / T + this.speed; o.vy = dy / T;
+    if (look === 'fireball') {
+      o.img.setTexture('obj.rock').setFlipX(false).setScale(scaleOf('obj.rock') * 0.8).setAngle(0);
+      o.tint = 0xff7a45; o.hx = -16; o.hy = -14; o.hw = 32; o.hh = 28;
+      this.tweens.add({ targets: o.img, angle: -720, duration: 1600 });
+    } else {
+      o.img.setAngle(Phaser.Math.RadToDeg(Math.atan2(dy, dx)) - 180);
+    }
+    this.baseTint(o);
+    sfx.throw();
+  }
+
+  // ───────────────────────────── Boss ─────────────────────────────
+  // The Ember Rival runs ahead of you (right of the screen) and attacks in a pattern per phase: thrown fireballs
+  // (low: jump, high: slide), ground slams (a shock wave: jump) and summoned slimes. After each pattern it stops,
+  // OPEN, and comes close: hit it. 12 HP, 3 phases of 4; one OPEN window can take at most what is left of the phase,
+  // so every weapon sees all three phases (Hammer: 1 hit per phase, Sword 2, Kunai 4).
+
+  private startBoss(): void {
+    const o = this.place('boss', GAME_W + 140);
+    o.hp = HP.boss ?? 12;
+    this.boss = o; this.bossPhase = 0; this.bossState = 'enter'; this.bossQueue = [...BOSS_ATTACKS[0]];
+    this.bossNextAt = this.now + 1800; this.bossInvulnUntil = 0;
+    const name = this.stage?.name.toUpperCase() ?? 'THE RIVAL';
+    const t = text(this, GAME_W / 2, 150, `⚔ ${name} ⚔`, 40, hex(BOSS_TINT), '900').setOrigin(0.5).setStroke('#2b2440', 8).setDepth(22);
+    this.bump(t, 1.6);
+    this.tweens.add({ targets: t, alpha: 0, delay: 1600, duration: 400, onComplete: () => t.destroy() });
+    this.cameras.main.shake(260, 0.008);
+    sfx.crash();
+    // Health bar under the progress bar.
+    const bg = this.add.rectangle(GAME_W / 2 - 150, 44, 300, 16, 0x2b2440, 0.7).setOrigin(0, 0.5).setStrokeStyle(2, 0xffffff, 0.7);
+    this.bossFill = this.add.rectangle(GAME_W / 2 - 148, 44, 296, 12, BOSS_TINT).setOrigin(0, 0.5);
+    const ticks = this.add.graphics().lineStyle(2, 0x2b2440, 1);
+    for (let i = 1; i < 3; i++) ticks.lineBetween(GAME_W / 2 - 148 + (296 * i) / 3, 38, GAME_W / 2 - 148 + (296 * i) / 3, 50);
+    const lbl = text(this, GAME_W / 2, 62, name, 12, '#ffffff', '800').setOrigin(0.5, 0).setStroke('#2b2440', 3);
+    this.bossBar = this.add.container(0, 0, [bg, this.bossFill, ticks, lbl]).setDepth(20);
+  }
+
+  private updateBoss(o: Ob, dt: number, now: number): void {
+    if (o.frozen) { this.bossNextAt += dt * 1000; return; } // Deep freeze pauses the fight too
+    const h = this.hero;
+    // Steer on screen (it keeps pace with you, it does not scroll away).
+    const targetX = this.bossState === 'open' ? h.x + 120 : BOSS_HOME_X;
+    const step = (this.bossState === 'open' ? 700 : 480) * dt;
+    o.img.x += Phaser.Math.Clamp(targetX - o.img.x, -step, step);
+    if (now < this.bossNextAt) return;
+
+    switch (this.bossState) {
+      case 'enter': case 'retreat':
+        this.bossState = 'attack'; this.bossNextAt = now + 500;
+        break;
+      case 'attack': {
+        const a = this.bossQueue.shift();
+        if (a) { this.bossAttack(o, a); this.bossNextAt = now + BOSS_GAP_MS[this.bossPhase]; break; }
+        // Pattern done: tired, OPEN.
+        this.bossState = 'open'; this.bossNextAt = now + BOSS_OPEN_MS[this.bossPhase];
+        o.tint = BOSS_OPEN_TINT; this.baseTint(o); o.img.anims.pause();
+        this.popup(o.img.x - 100, o.img.y - 260, 'OPEN! HIT IT!', '#80ffdb', 26);
+        sfx.meterFull();
+        break;
+      }
+      case 'open': this.bossRetreat(o); break;
+    }
+  }
+
+  private bossRetreat(o: Ob): void {
+    this.bossState = 'retreat'; this.bossNextAt = this.now + 900;
+    this.bossQueue = [...BOSS_ATTACKS[this.bossPhase]];
+    o.tint = BOSS_TINT; this.baseTint(o); o.img.anims.resume();
+  }
+
+  private bossAttack(o: Ob, a: string): void {
+    const x = o.img.x - 50;
+    o.img.play({ key: `hero.${o.skin}.attack`, frameRate: 20 }).chain(`hero.${o.skin}.run`);
+    if (a === 'throwLow') this.shoot(x, GROUND_Y - 26, -100, GROUND_Y - 26, 470, 'fireball');      // jump it
+    else if (a === 'throwHigh') this.shoot(x, GROUND_Y - 76, -100, GROUND_Y - 76, 470, 'fireball'); // slide under it
+    else if (a === 'slam') {
+      // Up, down, and a shock wave runs along the ground: jump it.
+      this.tweens.add({
+        targets: o.img, y: GROUND_Y - 110, duration: 260, yoyo: true, ease: 'Quad.Out',
+        onComplete: () => {
+          o.img.y = GROUND_Y;
+          if (!o.alive) return;
+          this.cameras.main.shake(180, 0.012); sfx.stomp();
+          this.hitFx.explode(16, o.img.x, GROUND_Y - 6);
+          const w = this.place('wave', o.img.x - 50);
+          w.img.setScale(5.5 * scaleOf('fx.dot'), 3.6 * scaleOf('fx.dot')).setOrigin(0.5, 1).setBlendMode(Phaser.BlendModes.ADD);
+          w.vx = this.speed - 540;
+        },
+      });
+    } else if (a === 'summon') {
+      if (this.bossPhase >= 2) for (let i = 0; i < 3; i++) { const m = this.place('mite', x - i * 44); m.baseY = GROUND_Y; }
+      else { this.place('slime', x); this.place('slime', x - 70); }
+      this.popup(o.img.x, o.img.y - 250, 'COME, MY ALTERED!', hex(BOSS_TINT), 18);
+    }
+  }
+
+  /** The boss only takes damage while OPEN (powers always land a little). Returns true when it is beaten. */
+  private damageBoss(o: Ob, dmg: number, byPower: boolean): boolean {
+    if (this.now < this.bossInvulnUntil) return false;
+    if (!byPower && this.bossState !== 'open') {
+      this.popup(o.img.x, o.img.y - 200, 'BLOCKED', '#c0c8ff', 18);
+      sfx.clang(); this.hitStop(30);
+      return false;
+    }
+    const floor = Math.max(0, (HP.boss ?? 12) - BOSS_PHASE_HP * (this.bossPhase + 1));
+    const hit = Math.min(byPower ? Math.min(dmg, 2) : dmg, o.hp - floor);
+    o.hp -= hit;
+    if (byPower) this.bossInvulnUntil = this.now + 600;
+    this.popup(o.img.x - 20, o.img.y - 200, `-${hit}`, '#ffffff', 26);
+    o.img.setTintFill(0xffffff);
+    this.time.delayedCall(80, () => this.baseTint(o));
+    this.cameras.main.shake(90, 0.007);
+    sfx.clang(); this.hitStop(70);
+    this.bonus += 40 * hit;
+    if (o.hp > floor) return false;
+    if (o.hp <= 0) { this.bossDefeated(o); return true; }
+    // Next phase: angrier and faster.
+    this.bossPhase++;
+    this.bossInvulnUntil = this.now + 1200;
+    this.bossRetreat(o);
+    this.slowMo(0.4, 500);
+    this.comboText.setText(`PHASE ${this.bossPhase + 1}!`).setColor(hex(BOSS_TINT)).setAlpha(1);
+    this.bump(this.comboText, 1.6);
+    this.tweens.add({ targets: this.comboText, alpha: 0, delay: 900, duration: 300 });
+    sfx.crash();
+    return false;
+  }
+
+  private bossDefeated(o: Ob): void {
+    this.kill(o);
+    this.boss = null;
+    this.time.delayedCall(400, () => this.free(o)); // it does not scroll away on its own
+    this.slowMo(0.3, 900);
+    this.cameras.main.flash(260, 255, 200, 150);
+    const t = text(this, GAME_W / 2, 170, 'RIVAL DEFEATED!', 44, '#80ffdb', '900').setOrigin(0.5).setStroke('#2b2440', 8).setDepth(22);
+    this.bump(t, 1.8);
+    this.tweens.add({ targets: t, alpha: 0, delay: 1800, duration: 500, onComplete: () => t.destroy() });
+    if (this.bossBar) this.tweens.add({ targets: this.bossBar, alpha: 0, duration: 600 });
+    // Its fireballs and helpers go with it.
+    for (const x of this.obs) {
+      if (!x.img.active || !x.alive || !(x.kind === 'arrow' || x.kind === 'wave' || x.kind === 'slime' || x.kind === 'mite')) continue;
+      x.alive = false; this.hitFx.explode(6, x.img.x, x.img.y - 10);
+      this.tweens.add({ targets: x.img, alpha: 0, duration: 250 });
+    }
+    sfx.finish();
+    this.nextSpawn = this.speed * 1.6;
+  }
+
   private moveShots(dt: number): void {
     for (const s of this.shots) {
       if (!s.alive) continue;
       const step = 1150 * dt;
-      s.img.x += step; s.dist += step;
+      s.img.x += step * s.vx; s.img.y += step * s.vy; s.dist += step;
       if (s.dist > this.lo.weapon.range || s.img.x > GAME_W + 40) { s.alive = false; s.img.setVisible(false); continue; }
       for (const o of this.obs) {
         if (!o.img.active || !o.alive || !DAMAGEABLE.has(o.kind)) continue;
@@ -1179,6 +1542,13 @@ export class RunScene extends Phaser.Scene {
   private collect(c: Coin): void {
     c.alive = false;
     c.img.setActive(false).setVisible(false);
+    if (c.secret) {
+      this.secretsFound++; this.bonus += SECRET_SCORE; this.addMeter(POWER.perCoin * 2);
+      this.coinFx.explode(12, c.img.x, c.img.y);
+      this.popup(c.img.x, c.img.y - 20, `◆ SECRET +${SECRET_SCORE}`, hex(SECRET_TINT), 20);
+      sfx.combo(6 + this.secretsFound % 4);
+      return;
+    }
     this.coinCount++;
     this.coinFx.explode(6, c.img.x, c.img.y);
     sfx.coin();
@@ -1202,7 +1572,7 @@ export class RunScene extends Phaser.Scene {
     if (now >= this.petReadyAt && !this.dead) {
       let best: Coin | null = null, bd = 1e9;
       for (const c of this.coins) {
-        if (!c.alive || c.pulled) continue;
+        if (!c.alive || c.pulled || c.secret) continue;
         const x = c.img.x;
         if (x > h.x - 24 || x < 8) continue;
         const d = Math.abs(x - this.petX) + Math.abs(c.img.y - this.petY);

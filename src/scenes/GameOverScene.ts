@@ -11,6 +11,8 @@ export interface RunResult {
   score: number; coins: number; kills: number; distance: number; finished: boolean; timeSec: number; loadout: Loadout;
   /** Set when the run was a world-map stage. */
   stageId?: string; coinsTotal?: number; hits?: number; stars?: Stars;
+  /** Hidden gems found / placed (stages with a "secret" pattern). */
+  secrets?: number; secretsTotal?: number;
 }
 
 export class GameOverScene extends Phaser.Scene {
@@ -39,7 +41,7 @@ export class GameOverScene extends Phaser.Scene {
 
   /** A world-map stage: the three stars (new ones pop in), best score, then next stage / retry / map. */
   private stageResult(r: RunResult, stage: Stage, earned: Stars): void {
-    const { newStars, newBest } = recordStage(stage.id, earned, r.score);
+    const { newStars, newBest } = recordStage(stage.id, earned, r.score, r.secrets ?? 0);
     const rec = stageRecord(stage.id)!;
     text(this, GAME_W / 2, 30, `WORLD ${stage.world}-${stage.num} · ${stage.name.toUpperCase()}`, 16, '#8fa3ff', '800').setOrigin(0.5);
     this.heading(r.finished, 66);
@@ -63,7 +65,7 @@ export class GameOverScene extends Phaser.Scene {
         this.tweens.add({ targets: star, scale: 1, duration: 420, delay: 250 + i * 260, ease: 'Back.Out', onStart: () => sfx.combo(i + 2) });
       }
     });
-    this.stats(r, 330, false);
+    this.stats(r, 330, false, r.secretsTotal ? `◆ ${r.secrets ?? 0} / ${r.secretsTotal} secrets` : '');
 
     const retry = () => this.scene.start('Run', { loadout: r.loadout, stageId: stage.id });
     const next = nextStage(stage);
@@ -74,7 +76,8 @@ export class GameOverScene extends Phaser.Scene {
     list.push(['↻  RETRY', retry, canNext ? 0x4361ee : 0xf72585, 190], ['World map', () => this.scene.start('Map', { stageId: stage.id }), 0x3a0ca3, 190]);
     this.buttons(list, 420);
     if (next && !isBuilt(next) && r.finished) {
-      text(this, GAME_W / 2, 482, `Next up: ${next.name}. Coming soon!`, 16, '#8fa3ff', '600').setOrigin(0.5);
+      const msg = stage.boss ? `World ${stage.world} complete! Next: World ${next.world}, ${next.name}. Coming soon!` : `Next up: ${next.name}. Coming soon!`;
+      text(this, GAME_W / 2, 482, msg, 16, '#8fa3ff', '600').setOrigin(0.5);
     }
     this.input.keyboard?.once('keydown-SPACE', canNext ? goNext : retry);
   }
@@ -83,8 +86,8 @@ export class GameOverScene extends Phaser.Scene {
     text(this, GAME_W / 2, y, finished ? 'FINISH!' : 'KNOCKED OUT', 48, finished ? '#80ffdb' : '#ff6b81', '900').setOrigin(0.5);
   }
 
-  private stats(r: RunResult, y: number, withCoins = true): void {
-    const parts = [`${Math.round(r.distance / 10)} m`, ...(withCoins ? [`${r.coins} coins`] : []), `${r.kills} defeated`, `${r.timeSec.toFixed(0)} s`];
+  private stats(r: RunResult, y: number, withCoins = true, extra = ''): void {
+    const parts = [`${Math.round(r.distance / 10)} m`, ...(withCoins ? [`${r.coins} coins`] : []), `${r.kills} defeated`, `${r.timeSec.toFixed(0)} s`, ...(extra ? [extra] : [])];
     text(this, GAME_W / 2, y, parts.join('   ·   '), 18, '#c0c8ff', '600').setOrigin(0.5);
   }
 
