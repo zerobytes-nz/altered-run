@@ -121,6 +121,8 @@ export class GameOverScene extends Phaser.Scene {
     const canNext = !!next && isBuilt(next) && isUnlocked(next);
     const goNext = () => this.scene.start('Run', { loadout: r.loadout, stageId: next!.id });
     const list: [string, () => void, number, number][] = [];
+    // The last boss: the ending card (shown on the first win, then from Awards).
+    if (stage.id === '4-6' && r.finished) list.push(['THE END  ▶', () => this.scene.start('Story', { cardId: 'ending', next: { scene: 'Menu' } }), 0xf72585, 230]);
     if (canNext) list.push(['NEXT STAGE  ▶', goNext, 0xf72585, 230]);
     list.push(['↻  RETRY', retry, canNext ? 0x4361ee : 0xf72585, 190], ['World map', () => this.scene.start('Map', { stageId: stage.id }), 0x3a0ca3, 190]);
     this.buttons(list, 420);

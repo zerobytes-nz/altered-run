@@ -9,7 +9,7 @@ import { dailySeed, dailyToday } from '../systems/daily';
 import { sfx, startMusic, stopMusic } from '../systems/audio';
 import { ShieldBubble } from '../systems/shieldBubble';
 import { muteButton, slotRow, text } from '../ui';
-import { SECRET_GEMS, getStage, parseEntry, type Stage } from '../stages';
+import { SECRET_GEMS, WORLDS, getStage, parseEntry, type Stage, type World } from '../stages';
 import type { RunMode, RunResult } from './GameOverScene';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,7 +35,16 @@ import type { RunMode, RunResult } from './GameOverScene';
 const HERO_COIN_Y = 44;
 
 type Kind = 'spike' | 'crate' | 'bar' | 'slime' | 'flag' | 'fly' | 'rival' | 'rock' | 'ledge' | 'pit'
-  | 'guard' | 'archer' | 'mite' | 'arrow' | 'wave' | 'boss';
+  | 'guard' | 'archer' | 'mite' | 'arrow' | 'wave' | 'boss'
+  // THEOS-39 (Worlds 2–4):
+  //   icicle   hangs up top, drops as you come (like a rock) and stays stuck in the ground: jump it
+  //   golem    an ice golem: armoured like a guard but bigger and tougher (Hammer / Fire; anyone can jump it)
+  //   wall     an ice wall, too tall to jump: break it (Fire's Blaze dash melts it at once)
+  //   zone     ground effect over a stretch: 'ice' (longer slides), 'up' / 'down' (wind bends your jumps)
+  //   zap      lightning: marks the ground, strikes, crackles for a moment (jump it, or wait it out)
+  //   swooper  a flyer that dives at you when you get close (slide under, or hit it low)
+  //   phantom  fades in and out: only solid (and dangerous, and hittable) part of the time
+  | 'icicle' | 'golem' | 'wall' | 'zone' | 'zap' | 'swooper' | 'phantom';
 
 interface Ob {
   img: Phaser.GameObjects.Sprite;
@@ -60,6 +69,7 @@ interface Ob {
   tint: number;     // resting tint (0 = none)
   shadow?: Phaser.GameObjects.Image;
   prop?: Phaser.GameObjects.Image; // guards: the shield they hold
+  label?: Phaser.GameObjects.Text;  // wind zones: the arrow sign
 }
 
 interface Coin { img: Phaser.GameObjects.Sprite; alive: boolean; pulled: boolean; secret: boolean; }
@@ -82,23 +92,67 @@ const HITBOX: Record<Kind, [number, number, number, number]> = {
   arrow: [-14, -6, 28, 12],   // centred (arrows use origin 0.5, 0.5)
   wave: [-20, -26, 40, 26],
   boss: [-40, -240, 80, 240],
+  icicle: [-16, -44, 32, 44],
+  golem: [-28, -136, 56, 136],
+  wall: [-30, -212, 60, 212],
+  zone: [0, 0, 0, 0],
+  zap: [-44, -30, 88, 30],
+  swooper: [-20, -32, 40, 28],
+  phantom: [-22, -92, 44, 92],
 };
 const TEX: Record<Kind, string> = {
   spike: 'obj.spike', crate: 'obj.crate', bar: 'obj.bar', slime: 'enemy.slime', flag: 'obj.flag',
   fly: 'enemy.fly', rival: 'hero.knight.run', rock: 'obj.rock', ledge: 'obj.ledge', pit: 'obj.pit',
   guard: 'hero.knight.run', archer: 'hero.knight.run', mite: 'enemy.slime', arrow: 'weapon.kunai', wave: 'fx.dot', boss: 'hero.knight.run',
+  icicle: 'obj.spike', golem: 'hero.knight.run', wall: 'fx.px', zone: 'fx.px', zap: 'fx.dot', swooper: 'enemy.fly', phantom: 'hero.knight.run',
 };
-const HP: Partial<Record<Kind, number>> = { crate: 1, slime: 1, fly: 1, rock: 1, rival: 4, guard: 4, archer: 1, mite: 1, arrow: 1, boss: 12 };
-const DAMAGEABLE = new Set<Kind>(['crate', 'slime', 'fly', 'rock', 'rival', 'guard', 'archer', 'mite', 'arrow', 'boss']);
+const HP: Partial<Record<Kind, number>> = {
+  crate: 1, slime: 1, fly: 1, rock: 1, rival: 4, guard: 4, archer: 1, mite: 1, arrow: 1, boss: 12,
+  icicle: 1, golem: 5, wall: 3, swooper: 1, phantom: 2,
+};
+const DAMAGEABLE = new Set<Kind>(['crate', 'slime', 'fly', 'rock', 'rival', 'guard', 'archer', 'mite', 'arrow', 'boss',
+  'icicle', 'golem', 'wall', 'swooper', 'phantom']);
 const PLATFORM = new Set<Kind>(['crate', 'ledge']);
 /** Enemies (count as "defeated" and squish); the rest of DAMAGEABLE are things you break. */
-const ENEMY = new Set<Kind>(['slime', 'fly', 'rival', 'guard', 'archer', 'mite', 'boss']);
+const ENEMY = new Set<Kind>(['slime', 'fly', 'rival', 'guard', 'archer', 'mite', 'boss', 'golem', 'swooper', 'phantom']);
 const KILL_SCORE: Partial<Record<Kind, number>> = {
   slime: SCORE.kill, fly: SCORE.kill, rival: SCORE.kill * 3, crate: SCORE.crate, rock: SCORE.crate,
   guard: SCORE.kill * 2, archer: SCORE.kill * 2, mite: 10, arrow: 5, boss: 500,
+  icicle: SCORE.crate, golem: SCORE.kill * 3, wall: SCORE.crate * 2, swooper: SCORE.kill, phantom: SCORE.kill * 2,
 };
 /** Enemies drawn with a hero sheet the player did not pick ("Altered" copies), at this size × the hero. */
-const ALTERED: Partial<Record<Kind, number>> = { rival: 2.4, guard: 1.15, archer: 1, boss: 2.9 };
+const ALTERED: Partial<Record<Kind, number>> = { rival: 2.4, guard: 1.15, archer: 1, boss: 2.9, golem: 1.6, phantom: 1.1 };
+/** Things that hurt you once, then are spent (they fade instead of hurting again). */
+const SPENT_ON_HIT = new Set<Kind>(['rival', 'rock', 'guard', 'icicle', 'golem', 'wall', 'phantom']);
+/** Armoured: hits weaker than GUARD_ARMOUR bounce off (powers always get through). */
+const ARMOURED = new Set<Kind>(['guard', 'golem']);
+/** Stomping these only bounces you (the Robot's heavy stomp hurts them). */
+const HEAVY = new Set<Kind>(['rival', 'guard', 'golem', 'phantom', 'boss']);
+const STOMPABLE = new Set<Kind>(['slime', 'fly', 'mite', 'archer', 'swooper']);
+const ICE_THING = 0xbfeaff;
+/** Phantoms: solid this long, then faded this long. */
+const PHANTOM_SOLID_MS = 1100, PHANTOM_FADE_MS = 950;
+/** Blinking ledges: there this long, then gone this long (they flicker for the last 350 ms). */
+const BLINK_ON_MS = 1500, BLINK_OFF_MS = 1000;
+/** Lightning crackles on the ground this long after it strikes. */
+const ZAP_LIVE_MS = 850;
+
+/** Each world's boss (stage entry "boss"). Attack lists are per phase. */
+interface BossDef { tint: number; shotTint: number; attacks: string[][]; gapMs: number[]; openMs: number[]; beaten: string; call: string; }
+const BOSSES: Record<number, BossDef> = {
+  1: { tint: 0xff9566, shotTint: 0xff7a45, beaten: 'RIVAL DEFEATED!', call: 'COME, MY ALTERED!',
+    attacks: [['throwLow', 'throwHigh', 'throwLow'], ['throwHigh', 'slam', 'throwLow', 'summon'], ['slam', 'throwLow', 'throwHigh', 'slam', 'summon', 'throwLow']],
+    gapMs: [1250, 1000, 820], openMs: [2800, 2400, 2000] },
+  2: { tint: 0x7fc8ff, shotTint: ICE_THING, beaten: 'THE GOLEM SHATTERS!', call: 'THE MOUNTAIN ANSWERS!',
+    attacks: [['throwLow', 'icicles', 'throwHigh'], ['throwHigh', 'slam', 'icicles', 'summon'], ['icicles', 'slam', 'throwLow', 'throwHigh', 'summon', 'icicles']],
+    gapMs: [1350, 1100, 900], openMs: [2800, 2400, 2000] },
+  3: { tint: 0xffe066, shotTint: 0xfff3a0, beaten: 'THE STORM BREAKS!', call: 'FLY, MY SWOOPERS!',
+    attacks: [['zap', 'throwHigh', 'zap'], ['zap', 'swoop', 'throwLow', 'zap'], ['zap', 'zap', 'swoop', 'throwHigh', 'zap', 'throwLow']],
+    gapMs: [1300, 1080, 900], openMs: [2700, 2300, 1950] },
+  4: { tint: 0xb084ff, shotTint: 0x8a6cff, beaten: 'THE ALTERING ENDS!', call: 'RISE, PHANTOMS!',
+    attacks: [['throwLow', 'phantom', 'throwHigh'], ['dark', 'throwHigh', 'throwLow', 'phantom'], ['dark', 'throwLow', 'throwHigh', 'phantom', 'throwLow', 'throwHigh']],
+    gapMs: [1250, 1050, 880], openMs: [2700, 2300, 1950] },
+};
 
 const HERO_HALF_W = 15;
 /** Thumb buttons (bottom right). `pad` = extra touch radius around the drawing. */
@@ -108,7 +162,6 @@ const BTN = {
 };
 /** Rivals, guards and archers are hero sheets flipped to face left, in an "Altered" purple; the boss glows ember. */
 const RIVAL_TINT = 0xa58cff;
-const BOSS_TINT = 0xff9566;
 const BOSS_OPEN_TINT = 0x8c93b8;
 const MITE_TINT = 0xffa060;
 /** Guards block hits weaker than this (the Hammer does 4; a Legendary Sword 3). */
@@ -119,13 +172,6 @@ const SECRET_SCORE = 50;
 const BOSS_PHASE_HP = 4;
 const BOSS_HOME_X = GAME_W - 170;
 type BossState = 'enter' | 'attack' | 'open' | 'retreat';
-const BOSS_ATTACKS: string[][] = [
-  ['throwLow', 'throwHigh', 'throwLow'],
-  ['throwHigh', 'slam', 'throwLow', 'summon'],
-  ['slam', 'throwLow', 'throwHigh', 'slam', 'summon', 'throwLow'],
-];
-const BOSS_GAP_MS = [1250, 1000, 820];
-const BOSS_OPEN_MS = [2800, 2400, 2000];
 const ICE_TINT = 0x9fe8ff;
 /** Seconds between a rock landing and the hero reaching it. */
 const ROCK_LEAD_S = 0.5;
@@ -254,6 +300,17 @@ export class RunScene extends Phaser.Scene {
   private bossInvulnUntil = 0;
   private bossBar?: Phaser.GameObjects.Container;
   private bossFill?: Phaser.GameObjects.Rectangle;
+  private bossDef: BossDef = BOSSES[1];
+
+  // Worlds (THEOS-39): the stage's world, and +1 weapon damage when the weapon AWI's element is strong here.
+  private world: World = WORLDS[0];
+  private dmgBonus = 0;
+  // Darkness (Shadow Wilds): the overlay, how dark it is now, and how dark it is heading.
+  private darkRT?: Phaser.GameObjects.RenderTexture;
+  private darkHole?: Phaser.GameObjects.Image;
+  private dark = 0;
+  private darkTarget = 0;
+  private darkUntil = 0;   // scene ms: a boss's "lights out" ends then
 
   constructor() { super('Run'); }
 
@@ -265,6 +322,10 @@ export class RunScene extends Phaser.Scene {
     this.seqIdx = 0; this.coinsSpawned = 0; this.hitsTaken = 0; this.secretsFound = 0; this.secretsSpawned = 0;
     this.boss = null; this.bossState = 'enter'; this.bossPhase = 0; this.bossQueue = []; this.bossNextAt = 0; this.bossInvulnUntil = 0;
     this.bossBar = undefined; this.bossFill = undefined;
+    this.world = WORLDS.find((w) => w.num === this.stage?.world) ?? WORLDS[0];
+    this.bossDef = BOSSES[this.world.num] ?? BOSSES[1];
+    this.dmgBonus = this.stage && this.lo.element === this.world.strong ? 1 : 0;
+    this.darkRT = undefined; this.darkHole = undefined; this.dark = 0; this.darkTarget = 0; this.darkUntil = 0;
     this.rng = new Phaser.Math.RandomDataGenerator([this.stage ? `stage-${this.stage.id}-${this.stage.seed}` : this.mode === 'daily' ? dailySeed() : `${Date.now()}-${Math.random()}`]);
     this.rivals = Object.keys(SKINS).filter((id) => id !== this.lo.skin.id);
     // Reset all per-run state (the scene instance is reused between runs).
@@ -283,13 +344,16 @@ export class RunScene extends Phaser.Scene {
 
   create(): void {
     // Day sky: the bottom colour matches GameArt2D's BG.png, whose own sky is keyed out of bg.far.
+    // Each world tints the same art (its own background art comes with THEOS-41).
+    const th = this.world.theme;
     const sky = this.add.graphics();
-    sky.fillGradientStyle(0x7fd0f2, 0x7fd0f2, 0xddf8ff, 0xddf8ff, 1);
+    sky.fillGradientStyle(th.skyTop, th.skyTop, th.skyBottom, th.skyBottom, 1);
     sky.fillRect(0, 0, GAME_W, GROUND_Y);
-    this.add.circle(560, 110, 34, 0xfff4b8, 0.95);
-    this.bgFar = this.add.tileSprite(0, GROUND_Y - 30, GAME_W, 220, 'bg.far').setOrigin(0, 1).setTileScale(scaleOf('bg.far'));
-    this.bgNear = this.add.tileSprite(0, GROUND_Y + 4, GAME_W, 160, 'bg.near').setOrigin(0, 1).setTileScale(scaleOf('bg.near'));
-    this.ground = this.add.tileSprite(0, GROUND_Y - 6, GAME_W, GAME_H - GROUND_Y + 6, 'bg.ground').setOrigin(0).setTileScale(scaleOf('bg.ground'));
+    this.add.circle(560, 110, 34, th.sun, 0.95);
+    this.bgFar = this.add.tileSprite(0, GROUND_Y - 30, GAME_W, 220, 'bg.far').setOrigin(0, 1).setTileScale(scaleOf('bg.far')).setTint(th.bgTint);
+    this.bgNear = this.add.tileSprite(0, GROUND_Y + 4, GAME_W, 160, 'bg.near').setOrigin(0, 1).setTileScale(scaleOf('bg.near')).setTint(th.bgTint);
+    this.ground = this.add.tileSprite(0, GROUND_Y - 6, GAME_W, GAME_H - GROUND_Y + 6, 'bg.ground').setOrigin(0).setTileScale(scaleOf('bg.ground')).setTint(th.groundTint);
+    this.weather(th.weather);
 
     // Hero, weapon, pet
     const skin = this.lo.skin.id;
@@ -448,6 +512,11 @@ export class RunScene extends Phaser.Scene {
       .setOrigin(0.5).setStroke('#2b2440', 7).setDepth(22);
     const parts: Phaser.GameObjects.Text[] = [title];
     if (tip) parts.push(text(this, GAME_W / 2, 164, tip, 17, '#ffd34d', '800').setOrigin(0.5).setStroke('#2b2440', 5).setDepth(22));
+    if (st && st.world > 1) {
+      const el = this.world.strong, mine = this.lo.element === el;
+      const msg = mine ? `${ELEMENT_ICON[el]} Your ${el} AWI is strong here: harder hits, longer POWER` : `${ELEMENT_ICON[el]} ${el} AWIs are strongest in ${this.world.name}`;
+      parts.push(text(this, GAME_W / 2, 192, msg, 15, mine ? '#80ffdb' : '#ffffff', '800').setOrigin(0.5).setStroke('#2b2440', 5).setDepth(22));
+    }
     for (const t of parts) {
       t.setAlpha(0);
       this.tweens.add({ targets: t, alpha: 1, duration: 250 });
@@ -531,6 +600,52 @@ export class RunScene extends Phaser.Scene {
 
   // ───────────────────────────── Pools ─────────────────────────────
 
+  /** Light ambient particles per world: snow, rain, or drifting motes. */
+  private weather(kind: World['theme']['weather']): void {
+    if (!kind) return;
+    const dotS = scaleOf('fx.dot'), pxS = scaleOf('fx.px');
+    if (kind === 'snow') {
+      this.add.particles(0, -10, 'fx.dot', {
+        x: { min: 0, max: GAME_W + 300 }, lifespan: 5200, speedX: { min: -160, max: -60 }, speedY: { min: 60, max: 120 },
+        scale: { min: 0.25 * dotS, max: 0.6 * dotS }, alpha: 0.85, frequency: 70,
+      }).setDepth(8);
+    } else if (kind === 'rain') {
+      this.add.particles(0, -20, 'fx.px', {
+        x: { min: 0, max: GAME_W + 400 }, lifespan: 700, speedX: -420, speedY: 900, rotate: 65,
+        scaleX: 9 * pxS, scaleY: 0.6 * pxS, alpha: 0.45, tint: 0xcfe0ff, frequency: 18,
+      }).setDepth(8);
+    } else {
+      this.add.particles(0, 0, 'fx.dot', {
+        x: { min: 0, max: GAME_W }, y: { min: 120, max: GROUND_Y - 20 }, lifespan: 2600, speedX: { min: -60, max: -20 }, speedY: { min: -20, max: 20 },
+        scale: { start: 0.45 * dotS, end: 0 }, alpha: { start: 0.9, end: 0 }, tint: 0xc8a8ff, blendMode: 'ADD', frequency: 180,
+      }).setDepth(13);
+    }
+  }
+
+  /** Darkness: a black layer with a soft hole of light around the hero (made the first time it is needed). */
+  private setDark(on: boolean): void {
+    this.darkTarget = on ? 1 : 0;
+    if (!on || this.darkRT) return;
+    if (!this.textures.exists('fx.hole')) {
+      const g = this.make.graphics({}, false);
+      for (let r = 200; r > 0; r -= 8) g.fillStyle(0xffffff, r > 120 ? 0.05 : 0.14).fillCircle(200, 200, r);
+      g.generateTexture('fx.hole', 400, 400); g.destroy();
+    }
+    this.darkHole = this.make.image({ key: 'fx.hole', add: false });
+    this.darkRT = this.add.renderTexture(0, 0, GAME_W, GAME_H).setOrigin(0).setDepth(12);
+  }
+
+  private updateDark(dt: number, now: number): void {
+    if (!this.darkRT) return;
+    if (this.darkUntil && now >= this.darkUntil) { this.darkUntil = 0; this.darkTarget = 0; }
+    // A Chain storm (and its coin pull afterwards) lights everything up.
+    const target = now < this.coinPullUntil || this.powerActive('Storm') ? 0 : this.darkTarget;
+    this.dark += Phaser.Math.Clamp(target - this.dark, -dt * 2.5, dt * 1.2);
+    if (this.dark < 0.01) { this.darkRT.setVisible(false); return; }
+    this.darkRT.setVisible(true).clear().fill(0x05030f, 0.93 * this.dark);
+    this.darkRT.erase(this.darkHole!, this.hero.x + 30, this.hero.y - 50);
+  }
+
   private getOb(kind: Kind): Ob {
     let o = this.obs.find((x) => !x.img.active);
     if (!o) {
@@ -546,14 +661,17 @@ export class RunScene extends Phaser.Scene {
     const altered = ALTERED[kind];
     Object.assign(o, { kind, alive: true, hx, hy, hw, hh, vx: 0, vy: 0, hp: HP[kind] ?? 1, kick: 0, swing: -1, falling: false, armed: false,
       frozen: this.powerActive('Ice'), minGap: 1e9, passed: false, w: 0, t: 0, n: 0,
-      tint: kind === 'boss' ? BOSS_TINT : altered ? RIVAL_TINT : kind === 'mite' ? MITE_TINT : kind === 'arrow' ? 0xff6b6b : kind === 'wave' ? 0xff7a45 : 0,
+      tint: kind === 'boss' ? this.bossDef.tint : kind === 'golem' ? 0x7fb4ff : kind === 'phantom' ? 0x7a5cc0 : altered ? RIVAL_TINT
+        : kind === 'mite' ? MITE_TINT : kind === 'arrow' ? 0xff6b6b : kind === 'wave' ? 0xff7a45
+        : kind === 'icicle' || kind === 'wall' ? ICE_THING : kind === 'swooper' || kind === 'zap' ? 0xffe066 : 0,
       skin: altered ? Phaser.Utils.Array.GetRandom(this.rivals) : '' });
     const tex = altered ? `hero.${o.skin}.run` : TEX[kind];
     const scale = scaleOf(tex) * (altered ?? (kind === 'mite' ? 0.55 : 1));
     o.img.anims.stop();
     o.img.setActive(true).setVisible(true).setAlpha(1).setAngle(0).setOrigin(0.5, kind === 'arrow' ? 0.5 : 1)
-      .setFlipX(!!altered || kind === 'arrow').setTexture(tex, 0).setScale(scale)
-      .setDepth(kind === 'pit' ? 1 : kind === 'ledge' ? 3 : 4);
+      .setFlipX(!!altered || kind === 'arrow').setFlipY(kind === 'icicle').setTexture(tex, 0).setScale(scale)
+      .setDepth(kind === 'pit' || kind === 'zone' || kind === 'zap' ? 1 : kind === 'ledge' ? 3 : 4);
+    o.label?.setVisible(false);
     this.baseTint(o);
     o.prop?.setVisible(false);
     o.img.setBlendMode(Phaser.BlendModes.NORMAL);
@@ -567,6 +685,10 @@ export class RunScene extends Phaser.Scene {
       o.prop.setVisible(true).setAlpha(1).setAngle(0).setTint(0xd0d6ff).setScale(scaleOf('trinket.shield') * 1.5);
     }
     if (kind === 'boss') o.img.play(tex);
+    if (kind === 'golem') { o.img.play(tex); o.img.anims.timeScale = 0.6; o.vx = -25; }
+    if (kind === 'phantom') { o.img.play(tex); o.vx = -30; o.armed = false; o.t = this.now + this.rng.between(300, PHANTOM_SOLID_MS); }
+    if (kind === 'swooper') { o.img.play(TEX.fly); o.vx = -50; }
+    if (kind === 'wall') o.img.setDisplaySize(60, 212).setAlpha(0.92);
     if (o.frozen) o.img.anims.pause();
     return o;
   }
@@ -580,6 +702,8 @@ export class RunScene extends Phaser.Scene {
 
   private free(o: Ob): void {
     o.img.setActive(false).setVisible(false); o.alive = false;
+    o.label?.setVisible(false);
+    if (o.kind === 'golem') o.img.anims.timeScale = 1;
     o.shadow?.setVisible(false);
     o.prop?.setVisible(false);
     if (o === this.flag) this.flag = null;
@@ -715,11 +839,161 @@ export class RunScene extends Phaser.Scene {
         }
         return 120;
       }
+      // ── Frost Peaks ──
+      case 'icicle': this.placeIcicle(x + 40); if (this.rng.frac() < 0.5) this.coinArc(x + 40); return 90;
+      case 'icicles': for (let i = 0; i < 3; i++) this.placeIcicle(x + 40 + i * 170); return 400;
+      case 'slick': {
+        // A stretch of ice with spikes on it: your slides go further, the jumps stay the same.
+        this.placeZone(x, 820, 'ice');
+        this.place('spike', x + 260); this.place('spike', x + 560); this.coinLine(x + 340, GROUND_Y - 30, 5, 40);
+        return 820;
+      }
+      case 'slickBars': {
+        // Two bars close together on ice: one long ice slide passes under both.
+        this.placeZone(x, 900, 'ice');
+        this.place('bar', x + 300, GROUND_Y - 44); this.place('bar', x + 640, GROUND_Y - 44);
+        this.coinLine(x + 260, GROUND_Y - 20, 10, 46);
+        return 900;
+      }
+      case 'golem': this.place('golem', x); if (this.rng.frac() < 0.5) this.coinArc(x); return 80;
+      case 'golem2': this.place('golem', x); this.place('golem', x + 260); return 320;
+      case 'iceWall': {
+        // Coins on the way in fill your POWER; break the wall before you reach it.
+        this.coinLine(x, GROUND_Y - 30, 5, 40);
+        this.place('wall', x + 380);
+        return 420;
+      }
+      // ── Storm Coast ──
+      case 'zap': this.placeZap(x + 40); return 100;
+      case 'zap2': this.placeZap(x + 40); this.placeZap(x + 330); return 400;
+      case 'updraft': {
+        // A gap wider than one jump, inside an updraft that carries you across. Coins show the way.
+        const w = Math.round(this.speed * air * 1.4);
+        this.placeZone(x, w + 380, 'up');
+        this.placePit(x + 200, w);
+        this.coinLine(x + 200, GROUND_Y - 200, Math.max(4, Math.round(w / 60)), 60);
+        return w + 400;
+      }
+      case 'downdraft': {
+        // Short jumps: spikes in a row inside a downdraft.
+        this.placeZone(x, 760, 'down');
+        this.place('spike', x + 200); this.place('spike', x + 252); this.place('spike', x + 520);
+        this.coinLine(x + 330, GROUND_Y - 30, 4, 40);
+        return 760;
+      }
+      case 'swooper': this.placeSwooper(x + 60); return 100;
+      case 'swooper2': this.placeSwooper(x + 60); this.placeSwooper(x + 420); return 480;
+      // ── Shadow Wilds ──
+      case 'phantom': this.place('phantom', x); if (this.rng.frac() < 0.5) this.coinArc(x); return 80;
+      case 'phantom2': this.place('phantom', x); this.place('phantom', x + 300); return 360;
+      case 'blinkPit': {
+        // A wide pit with two ledges that come and go, out of step with each other.
+        const w = Math.round(this.speed * air * 1.7);
+        this.placePit(x, w);
+        for (let i = 0; i < 2; i++) {
+          const l = this.place('ledge', x + w * (0.3 + 0.4 * i), GROUND_Y - 84 + 44);
+          l.skin = 'blink'; l.armed = false; l.t = this.now + BLINK_ON_MS - i * 600;
+        }
+        this.coinLine(x + w * 0.3 - 40, GROUND_Y - 118, 3, 40);
+        return w + 60;
+      }
+      case 'dark': this.setDark(true); return 0;
+      case 'light': this.setDark(false); return 0;
       case 'boss': this.startBoss(); return 0;
       case 'rest': return 0;
       case 'coinsLow': this.coinLine(x, GROUND_Y - 30, 6, 40); return 240;
       case 'coinsHigh': this.jumpArc(x + 100, 6, 40); return 240;
       default: if (this.rng.frac() < 0.5) this.coinLine(x, GROUND_Y - 30, 6, 40); else this.jumpArc(x + 100, 6, 40); return 240;
+    }
+  }
+
+  private placeIcicle(x: number): void {
+    const o = this.place('icicle', x, 150);
+    o.falling = true; o.armed = false; o.baseY = 150;
+    o.shadow ??= this.add.image(0, 0, 'fx.dot').setTint(0x2b2440).setDepth(2);
+    o.shadow.setVisible(true).setAlpha(0.2).setScale(2.4 * scaleOf('fx.dot'), 0.7 * scaleOf('fx.dot')).setPosition(x, GROUND_Y - 2);
+  }
+
+  /** A ground effect over [x, x + w): 'ice', 'up' or 'down' (see zoneAt). */
+  private placeZone(x: number, w: number, type: 'ice' | 'up' | 'down'): void {
+    const o = this.getOb('zone');
+    o.alive = false; o.w = w; o.skin = type;
+    const ice = type === 'ice';
+    o.img.setOrigin(0, 1).setPosition(x, ice ? GROUND_Y + 8 : GROUND_Y).setTint(ice ? 0xdff6ff : type === 'up' ? 0xbfe6ff : 0x8a9ab8)
+      .setDisplaySize(w, ice ? 16 : 380).setAlpha(ice ? 0.85 : 0.16);
+    if (!ice) {
+      o.label ??= text(this, 0, 0, '', 16, '#ffffff', '900').setOrigin(0.5).setStroke('#2b2440', 4).setDepth(3);
+      o.label.setText(type === 'up' ? '⇡ UPDRAFT ⇡' : '⇣ DOWNDRAFT ⇣').setVisible(true).setAlpha(0.9);
+    }
+  }
+
+  /** The zone of this type under x, if any. */
+  private zoneAt(x: number, type: string): boolean {
+    for (const o of this.obs) if (o.kind === 'zone' && o.img.active && o.skin === type && x >= o.img.x && x < o.img.x + o.w) return true;
+    return false;
+  }
+
+  private placeZap(x: number, leadS = this.rng.realInRange(0.3, 1.3)): void {
+    const o = this.place('zap', x, GROUND_Y + 4);
+    o.alive = false; o.n = 0; o.baseY = leadS;
+    o.img.setScale(5.5 * scaleOf('fx.dot'), 1.1 * scaleOf('fx.dot')).setOrigin(0.5, 1).setAlpha(0.6).setBlendMode(Phaser.BlendModes.ADD);
+  }
+
+  private placeSwooper(x: number): void {
+    const o = this.place('swooper', x, GROUND_Y - 250);
+    o.baseY = o.img.y; o.armed = false;
+  }
+
+  /** Per-frame behaviour of the Worlds 2–4 things. */
+  private updateWorldThing(o: Ob, now: number): void {
+    const h = this.hero;
+    switch (o.kind) {
+      case 'zap':
+        if (o.n === 0) {
+          o.img.setAlpha(((now / 120) | 0) % 2 ? 0.75 : 0.35);
+          if (o.img.x - h.x < this.speed * o.baseY + 30 || o.img.x < h.x) {
+            o.n = 1; o.t = now + ZAP_LIVE_MS; o.alive = !o.frozen;
+            this.bolts.clear(); this.drawBolt(o.img.x, GROUND_Y);
+            this.tweens.add({ targets: this.bolts, alpha: { from: 1, to: 0 }, duration: 260, onComplete: () => this.bolts.clear() });
+            o.img.setAlpha(1).setTint(0xffffff).setScale(5.5 * scaleOf('fx.dot'), 2 * scaleOf('fx.dot'));
+            this.time.delayedCall(60, () => this.baseTint(o));
+            this.cameras.main.flash(70, 255, 240, 160);
+            sfx.zap();
+          }
+        } else if (o.n === 1) {
+          if (((now / 50) | 0) % 2) this.coinFx.explode(1, o.img.x + Phaser.Math.Between(-40, 40), GROUND_Y - 8);
+          if (now >= o.t) { o.n = 2; o.alive = false; this.tweens.add({ targets: o.img, alpha: 0, duration: 250 }); }
+        }
+        break;
+      case 'swooper':
+        if (!o.armed && o.alive && !o.frozen && o.img.x - h.x < 380) {
+          o.armed = true; this.telegraph(o);
+          this.tweens.add({ targets: o.img, y: GROUND_Y - 44, duration: 430, ease: 'Quad.In', hold: 320, yoyo: true });
+        } else if (!o.armed) o.img.y = o.baseY + Math.sin(now / 200) * 10;
+        break;
+      case 'phantom':
+        if (o.frozen || !o.img.active) break;
+        if (now >= o.t) {
+          o.armed = !o.armed; // armed = faded
+          o.t = now + (o.armed ? PHANTOM_FADE_MS : PHANTOM_SOLID_MS);
+          this.tweens.add({ targets: o.img, alpha: o.armed ? 0.22 : 1, duration: 180 });
+        }
+        break;
+      case 'ledge':
+        if (o.skin !== 'blink') break;
+        if (now >= o.t) {
+          o.armed = !o.armed; // armed = gone
+          o.alive = !o.armed;
+          o.t = now + (o.armed ? BLINK_OFF_MS : BLINK_ON_MS);
+          o.img.setAlpha(o.armed ? 0.12 : 1);
+        } else if (!o.armed && o.t - now < 350) o.img.setAlpha(((now / 60) | 0) % 2 ? 0.35 : 1);
+        break;
+      case 'zone':
+        o.label?.setPosition(o.img.x + o.w / 2, GROUND_Y - 250);
+        if (o.skin !== 'ice' && ((now / 90) | 0) % 3 === 0) {
+          this.dustFx.explode(1, o.img.x + Math.random() * o.w, o.skin === 'up' ? GROUND_Y - 20 : GROUND_Y - 340);
+        }
+        break;
     }
   }
 
@@ -796,9 +1070,16 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  /** Slides last longer on ice (Frost Peaks). */
+  private slideMs(): number {
+    if (!this.zoneAt(this.hero.x, 'ice')) return RUN.slideMs;
+    this.coinFx.explode(6, this.hero.x, this.hero.y - 4);
+    return RUN.slideMs * 1.8;
+  }
+
   private trySlide(): void {
     if (this.onGround) {
-      this.slideUntil = this.now + RUN.slideMs; this.attackUntil = 0;
+      this.slideUntil = this.now + this.slideMs(); this.attackUntil = 0;
       this.dustFx.explode(8, this.hero.x + 10, this.hero.y); this.sqX = 1.2; this.sqY = 0.85;
       sfx.slide();
     } else { this.vy = Math.max(this.vy, RUN.fastFallVelocity); this.slideQueued = true; }
@@ -850,7 +1131,7 @@ export class RunScene extends Phaser.Scene {
     if (this.dead || this.meter < 1 || this.powerActive()) return;
     this.meter = 0;
     const el = this.powerEl, mul = this.lo.powerMul, col = ELEMENT_COLOR[el];
-    const dur = { Fire: POWER.fireMs, Ice: POWER.iceMs, Storm: POWER.stormPullMs, Shadow: POWER.shadowMs }[el] * mul;
+    const dur = { Fire: POWER.fireMs, Ice: POWER.iceMs, Storm: POWER.stormPullMs, Shadow: POWER.shadowMs }[el] * mul * (this.dmgBonus ? 1.4 : 1);
     this.powerUntil = this.now + dur; this.powerMs = dur;
     sfx.power(el);
     const cam = this.cameras.main;
@@ -932,7 +1213,7 @@ export class RunScene extends Phaser.Scene {
   /** Damage an obstacle; returns true if it was destroyed. */
   private damage(o: Ob, dmg: number, byPower = false, kick = 170): boolean {
     if (!o.alive) return false;
-    if (o.kind === 'guard' && !byPower && dmg < GUARD_ARMOUR) { this.blocked(o); return false; }
+    if (ARMOURED.has(o.kind) && !byPower && dmg < GUARD_ARMOUR) { this.blocked(o); return false; }
     if (o.kind === 'boss') return this.damageBoss(o, dmg, byPower);
     o.hp -= dmg;
     const col = hex(ELEMENT_COLOR[this.powerEl]);
@@ -959,7 +1240,7 @@ export class RunScene extends Phaser.Scene {
     o.alive = false;
     if (ENEMY.has(o.kind)) {
       this.kills++;
-      if (o.kind === 'rival' || o.kind === 'guard' || o.kind === 'boss') sfx.crash(); else sfx.squish();
+      if (HEAVY.has(o.kind)) sfx.crash(); else sfx.squish();
     } else if (o.kind === 'arrow') { sfx.clang(); }
     else { this.crates++; sfx.smash(); }
     if (o.prop?.visible) {
@@ -981,7 +1262,7 @@ export class RunScene extends Phaser.Scene {
     this.addMeter(POWER.perKill);
     o.shadow?.setVisible(false);
     o.img.clearTint();
-    const big = o.kind === 'rival' || o.kind === 'guard' || o.kind === 'boss';
+    const big = HEAVY.has(o.kind) || o.kind === 'wall';
     this.hitFx.explode(big ? 26 : 14, o.img.x, o.img.y - 24);
     this.cameras.main.shake(70, big ? 0.01 : 0.004);
     this.hitStop(big ? 90 : 45);
@@ -1108,6 +1389,7 @@ export class RunScene extends Phaser.Scene {
     this.updateHero(dt, now);
     this.moveWorld(dx, dt, now);
     this.moveShots(dt);
+    this.updateDark(dt, now);
     this.updatePet(dt, now);
     this.updateHud();
   }
@@ -1128,7 +1410,9 @@ export class RunScene extends Phaser.Scene {
     if (this.onGround && h.y >= GROUND_Y && !this.dead && this.pitAt(h.x)) { this.onGround = false; this.vy = 0; }
     if (!this.onGround) {
       const fallVy = this.vy;
-      this.vy += RUN.gravity * dt;
+      // Wind (Storm Coast): updrafts make you float, downdrafts pull you down.
+      const wind = this.zoneAt(h.x, 'up') ? (this.vy < 0 ? 0.55 : 0.4) : this.zoneAt(h.x, 'down') ? 1.5 : 1;
+      this.vy += RUN.gravity * wind * dt;
       h.y += this.vy * dt;
       const overPit = !this.dead && this.pitAt(h.x);
       // Land on the ground only when coming down onto it (not from inside a pit).
@@ -1191,7 +1475,7 @@ export class RunScene extends Phaser.Scene {
     if (this.dead) return;
     if (vy > 600) { this.dustFx.explode(6, this.hero.x, this.hero.y); this.sqX = 1.25; this.sqY = 0.78; }
     if (this.lo.skin.stomp && vy > 850) this.stomp();
-    if (this.slideQueued) { this.slideQueued = false; this.slideUntil = now + RUN.slideMs; }
+    if (this.slideQueued) { this.slideQueued = false; this.slideUntil = now + this.slideMs(); }
     if (now < this.jumpBufferUntil) { this.jumpBufferUntil = 0; this.tryJump(); }
   }
 
@@ -1241,7 +1525,8 @@ export class RunScene extends Phaser.Scene {
       }
       if (o.kind === 'fly' && !o.frozen && o.alive) o.img.y = o.baseY + Math.sin(now / 180 + i) * 8;
       if (o.kind === 'mite' && !o.frozen && o.alive) o.img.y = o.baseY - Math.abs(Math.sin(now / 130 + i * 0.9)) * 14;
-      if (o.kind === 'rock') this.updateRock(o, dt, h);
+      if (o.kind === 'rock' || o.kind === 'icicle') this.updateRock(o, dt, h);
+      this.updateWorldThing(o, now);
       if (o.kind === 'archer' && o.alive && !o.frozen) this.updateArcher(o, now);
       if (o.kind === 'arrow' && !o.frozen && o.alive) {
         o.img.y += o.vy * dt;
@@ -1254,16 +1539,17 @@ export class RunScene extends Phaser.Scene {
         o.img.play({ key: `hero.${o.skin}.attack`, frameRate: 16 }).chain(`hero.${o.skin}.run`);
         sfx.whistle();
       }
-      const right = o.kind === 'pit' ? o.img.x + o.w : o.img.x + 120;
+      const right = o.kind === 'pit' || o.kind === 'zone' ? o.img.x + o.w : o.img.x + 120;
       if (right < -60 || (o.kind === 'arrow' && o.img.y > GAME_H + 40)) { this.free(o); continue; }
       if (!o.alive || this.dead) continue;
+      if (o.kind === 'phantom' && o.armed) continue; // faded: nothing touches it, it touches nothing
 
       const ol = o.img.x + o.hx, ot = o.img.y + o.hy, or = ol + o.hw, ob = ot + o.hh;
       // Melee swing: in front of the hero, body height (+ above for falling rocks).
       if (attacking && DAMAGEABLE.has(o.kind) && o.swing !== this.swingId && ol < h.x + range && or > h.x - 10
-        && ot < hb && ob > ht - (o.kind === 'rock' ? 120 : 10)) {
+        && ot < hb && ob > ht - (o.kind === 'rock' || o.kind === 'icicle' ? 120 : 10)) {
         o.swing = this.swingId;
-        if (this.damage(o, this.lo.weapon.damage)) continue;
+        if (this.damage(o, this.lo.weapon.damage + this.dmgBonus)) continue;
       }
       const overlap = ol < hr && or > hl && ot < hb && ob > ht;
       // Near-miss tracking: how close did it come while level with the hero?
@@ -1280,7 +1566,7 @@ export class RunScene extends Phaser.Scene {
       // Powers: Fire smashes everything it touches, Ice-frozen things shatter, Shadow passes through.
       if (fire && DAMAGEABLE.has(o.kind)) { this.damage(o, 99, true); continue; }
       if (o.frozen && o.kind === 'boss') continue; // a frozen boss is just in the way for a moment
-      if (o.frozen && (DAMAGEABLE.has(o.kind) || o.kind === 'wave')) { this.kill(o); continue; }
+      if (o.frozen && (DAMAGEABLE.has(o.kind) || o.kind === 'wave' || o.kind === 'zap')) { this.kill(o); continue; }
       if (PLATFORM.has(o.kind) && this.vy >= 0 && hb - this.vy * dt <= ot + 12) {
         // Landing on top of a crate or ledge counts as standing on it.
         const fallVy = this.vy;
@@ -1291,19 +1577,18 @@ export class RunScene extends Phaser.Scene {
       if (o.kind === 'ledge') continue; // one-way: pass through from below and the sides
       if (ghost || fire) continue;
       // Stomp a slime / fly, or bounce off an armour's head, by landing on it.
-      if ((o.kind === 'slime' || o.kind === 'rival' || o.kind === 'fly' || o.kind === 'mite' || o.kind === 'guard' || o.kind === 'archer' || o.kind === 'boss')
-        && this.vy > 0 && hb - this.vy * dt <= ot + 16) {
-        // Small things squash; armour (rival, guard) and the boss only take the Robot's heavy stomp.
-        if (o.kind === 'slime' || o.kind === 'fly' || o.kind === 'mite' || o.kind === 'archer') this.kill(o);
-        else if (this.lo.skin.stomp) this.damage(o, 2, o.kind === 'guard');
-        else if (o.kind === 'boss') this.damage(o, 1);
+      if ((STOMPABLE.has(o.kind) || HEAVY.has(o.kind)) && this.vy > 0 && hb - this.vy * dt <= ot + 16) {
+        // Small things squash; armour (rival, guard, golem) and the boss only take the Robot's heavy stomp.
+        if (STOMPABLE.has(o.kind)) this.kill(o);
+        else if (this.lo.skin.stomp) this.damage(o, 2, ARMOURED.has(o.kind));
+        else if (o.kind === 'boss' || o.kind === 'phantom') this.damage(o, 1);
         this.vy = -RUN.airJumpVelocity * 0.85; this.onGround = false; this.sqX = 0.8; this.sqY = 1.2;
         this.airJumps = this.lo.trinket.airJumps ?? 0;
         continue;
       }
       this.hurt();
-      if (o.kind === 'rival' || o.kind === 'rock' || o.kind === 'guard') { o.alive = false; this.tweens.add({ targets: o.img, alpha: 0.3, duration: 200 }); o.prop?.setAlpha(0.3); }
-      if (o.kind === 'arrow' || o.kind === 'wave') { o.alive = false; o.img.setAlpha(0.3); }
+      if (SPENT_ON_HIT.has(o.kind)) { o.alive = false; this.tweens.add({ targets: o.img, alpha: 0.3, duration: 200 }); o.prop?.setAlpha(0.3); }
+      if (o.kind === 'arrow' || o.kind === 'wave' || o.kind === 'zap') { o.alive = false; o.img.setAlpha(0.3); }
     }
     // Walked off the end of a crate or ledge → start falling.
     if (this.onGround && h.y < GROUND_Y && !this.onPlatform()) this.onGround = false;
@@ -1336,12 +1621,13 @@ export class RunScene extends Phaser.Scene {
     }
     if (!o.falling || o.frozen) return;
     // Drop early enough that it lands ROCK_LEAD_S before the hero gets there: you see it land, then jump it.
-    const fallT = Math.sqrt((2 * (GROUND_Y + 60)) / RUN.gravity);
+    const icicle = o.kind === 'icicle';
+    const fallT = Math.sqrt((2 * (GROUND_Y - (icicle ? o.baseY : -60))) / RUN.gravity);
     if (!o.armed && o.img.x - h.x < this.speed * (fallT + ROCK_LEAD_S) + 40) { o.armed = true; sfx.whistle(); }
-    if (!o.armed) return;
+    if (!o.armed) { if (icicle && o.img.x - h.x < this.speed * (fallT + ROCK_LEAD_S) + 260) o.img.angle = Math.sin(this.now / 40) * 4; return; }
     o.vy += RUN.gravity * dt;
     o.img.y += o.vy * dt;
-    o.img.angle += 240 * dt;
+    if (icicle) o.img.angle = 0; else o.img.angle += 240 * dt;
     if (o.img.y >= GROUND_Y) {
       o.img.y = GROUND_Y; o.falling = false; o.vy = 0;
       o.shadow?.setVisible(false);
@@ -1382,7 +1668,7 @@ export class RunScene extends Phaser.Scene {
     o.vx = dx / T + this.speed; o.vy = dy / T;
     if (look === 'fireball') {
       o.img.setTexture('obj.rock').setFlipX(false).setScale(scaleOf('obj.rock') * 0.8).setAngle(0);
-      o.tint = 0xff7a45; o.hx = -16; o.hy = -14; o.hw = 32; o.hh = 28;
+      o.tint = this.bossDef.shotTint; o.hx = -16; o.hy = -14; o.hw = 32; o.hh = 28;
       this.tweens.add({ targets: o.img, angle: -720, duration: 1600 });
     } else {
       o.img.setAngle(Phaser.Math.RadToDeg(Math.atan2(dy, dx)) - 180);
@@ -1400,17 +1686,17 @@ export class RunScene extends Phaser.Scene {
   private startBoss(): void {
     const o = this.place('boss', GAME_W + 140);
     o.hp = HP.boss ?? 12;
-    this.boss = o; this.bossPhase = 0; this.bossState = 'enter'; this.bossQueue = [...BOSS_ATTACKS[0]];
+    this.boss = o; this.bossPhase = 0; this.bossState = 'enter'; this.bossQueue = [...this.bossDef.attacks[0]];
     this.bossNextAt = this.now + 1800; this.bossInvulnUntil = 0;
     const name = this.stage?.name.toUpperCase() ?? 'THE RIVAL';
-    const t = text(this, GAME_W / 2, 150, `⚔ ${name} ⚔`, 40, hex(BOSS_TINT), '900').setOrigin(0.5).setStroke('#2b2440', 8).setDepth(22);
+    const t = text(this, GAME_W / 2, 150, `⚔ ${name} ⚔`, 40, hex(this.bossDef.tint), '900').setOrigin(0.5).setStroke('#2b2440', 8).setDepth(22);
     this.bump(t, 1.6);
     this.tweens.add({ targets: t, alpha: 0, delay: 1600, duration: 400, onComplete: () => t.destroy() });
     this.cameras.main.shake(260, 0.008);
     sfx.crash();
     // Health bar under the progress bar.
     const bg = this.add.rectangle(GAME_W / 2 - 150, 44, 300, 16, 0x2b2440, 0.7).setOrigin(0, 0.5).setStrokeStyle(2, 0xffffff, 0.7);
-    this.bossFill = this.add.rectangle(GAME_W / 2 - 148, 44, 296, 12, BOSS_TINT).setOrigin(0, 0.5);
+    this.bossFill = this.add.rectangle(GAME_W / 2 - 148, 44, 296, 12, this.bossDef.tint).setOrigin(0, 0.5);
     const ticks = this.add.graphics().lineStyle(2, 0x2b2440, 1);
     for (let i = 1; i < 3; i++) ticks.lineBetween(GAME_W / 2 - 148 + (296 * i) / 3, 38, GAME_W / 2 - 148 + (296 * i) / 3, 50);
     const lbl = text(this, GAME_W / 2, 62, name, 12, '#ffffff', '800').setOrigin(0.5, 0).setStroke('#2b2440', 3);
@@ -1432,9 +1718,9 @@ export class RunScene extends Phaser.Scene {
         break;
       case 'attack': {
         const a = this.bossQueue.shift();
-        if (a) { this.bossAttack(o, a); this.bossNextAt = now + BOSS_GAP_MS[this.bossPhase]; break; }
+        if (a) { this.bossAttack(o, a); this.bossNextAt = now + this.bossDef.gapMs[this.bossPhase]; break; }
         // Pattern done: tired, OPEN.
-        this.bossState = 'open'; this.bossNextAt = now + BOSS_OPEN_MS[this.bossPhase];
+        this.bossState = 'open'; this.bossNextAt = now + this.bossDef.openMs[this.bossPhase];
         o.tint = BOSS_OPEN_TINT; this.baseTint(o); o.img.anims.pause();
         this.popup(o.img.x - 100, o.img.y - 260, 'OPEN! HIT IT!', '#80ffdb', 26);
         sfx.meterFull();
@@ -1446,8 +1732,8 @@ export class RunScene extends Phaser.Scene {
 
   private bossRetreat(o: Ob): void {
     this.bossState = 'retreat'; this.bossNextAt = this.now + 900;
-    this.bossQueue = [...BOSS_ATTACKS[this.bossPhase]];
-    o.tint = BOSS_TINT; this.baseTint(o); o.img.anims.resume();
+    this.bossQueue = [...this.bossDef.attacks[this.bossPhase]];
+    o.tint = this.bossDef.tint; this.baseTint(o); o.img.anims.resume();
   }
 
   private bossAttack(o: Ob, a: string): void {
@@ -1470,9 +1756,25 @@ export class RunScene extends Phaser.Scene {
         },
       });
     } else if (a === 'summon') {
-      if (this.bossPhase >= 2) for (let i = 0; i < 3; i++) { const m = this.place('mite', x - i * 44); m.baseY = GROUND_Y; }
+      if (this.bossPhase >= 2) for (let i = 0; i < 3; i++) { const m = this.place('mite', x - i * 44); m.baseY = GROUND_Y; if (this.world.num === 2) { m.tint = ICE_THING; this.baseTint(m); } }
       else { this.place('slime', x); this.place('slime', x - 70); }
-      this.popup(o.img.x, o.img.y - 250, 'COME, MY ALTERED!', hex(BOSS_TINT), 18);
+      this.popup(o.img.x, o.img.y - 250, this.bossDef.call, hex(this.bossDef.tint), 18);
+    } else if (a === 'icicles') {
+      // Icicles drop just ahead of you, one after another: jump them as they land.
+      for (let i = 0; i < 2 + this.bossPhase; i++) this.placeIcicle(GAME_W + 60 + i * 190);
+    } else if (a === 'zap') {
+      // Lightning called down ahead of you: it is still crackling when you arrive, so jump it.
+      this.placeZap(this.hero.x + this.speed * 1.15, 0.55);
+    } else if (a === 'swoop') {
+      this.placeSwooper(GAME_W + 40);
+      this.popup(o.img.x, o.img.y - 250, this.bossDef.call, hex(this.bossDef.tint), 18);
+    } else if (a === 'phantom') {
+      this.place('phantom', GAME_W + 60);
+      this.popup(o.img.x, o.img.y - 250, this.bossDef.call, hex(this.bossDef.tint), 18);
+    } else if (a === 'dark') {
+      // Lights out for a few seconds.
+      this.setDark(true); this.darkUntil = this.now + 4200;
+      this.popup(o.img.x, o.img.y - 250, 'DARKNESS!', hex(this.bossDef.tint), 22);
     }
   }
 
@@ -1501,7 +1803,7 @@ export class RunScene extends Phaser.Scene {
     this.bossInvulnUntil = this.now + 1200;
     this.bossRetreat(o);
     this.slowMo(0.4, 500);
-    this.comboText.setText(`PHASE ${this.bossPhase + 1}!`).setColor(hex(BOSS_TINT)).setAlpha(1);
+    this.comboText.setText(`PHASE ${this.bossPhase + 1}!`).setColor(hex(this.bossDef.tint)).setAlpha(1);
     this.bump(this.comboText, 1.6);
     this.tweens.add({ targets: this.comboText, alpha: 0, delay: 900, duration: 300 });
     sfx.crash();
@@ -1514,17 +1816,19 @@ export class RunScene extends Phaser.Scene {
     this.time.delayedCall(400, () => this.free(o)); // it does not scroll away on its own
     this.slowMo(0.3, 900);
     this.cameras.main.flash(260, 255, 200, 150);
-    const t = text(this, GAME_W / 2, 170, 'RIVAL DEFEATED!', 44, '#80ffdb', '900').setOrigin(0.5).setStroke('#2b2440', 8).setDepth(22);
+    const t = text(this, GAME_W / 2, 170, this.bossDef.beaten, 44, '#80ffdb', '900').setOrigin(0.5).setStroke('#2b2440', 8).setDepth(22);
     this.bump(t, 1.8);
     this.tweens.add({ targets: t, alpha: 0, delay: 1800, duration: 500, onComplete: () => t.destroy() });
     if (this.bossBar) this.tweens.add({ targets: this.bossBar, alpha: 0, duration: 600 });
     // Its fireballs and helpers go with it.
     for (const x of this.obs) {
-      if (!x.img.active || !x.alive || !(x.kind === 'arrow' || x.kind === 'wave' || x.kind === 'slime' || x.kind === 'mite')) continue;
+      if (!x.img.active || !x.alive || !(x.kind === 'arrow' || x.kind === 'wave' || x.kind === 'slime' || x.kind === 'mite'
+        || x.kind === 'icicle' || x.kind === 'zap' || x.kind === 'swooper' || x.kind === 'phantom')) continue;
       x.alive = false; this.hitFx.explode(6, x.img.x, x.img.y - 10);
       this.tweens.add({ targets: x.img, alpha: 0, duration: 250 });
     }
     sfx.finish();
+    this.setDark(false); this.darkUntil = 0;
     this.nextSpawn = this.speed * 1.6;
   }
 
@@ -1535,10 +1839,10 @@ export class RunScene extends Phaser.Scene {
       s.img.x += step * s.vx; s.img.y += step * s.vy; s.dist += step;
       if (s.dist > this.lo.weapon.range || s.img.x > GAME_W + 40) { s.alive = false; s.img.setVisible(false); continue; }
       for (const o of this.obs) {
-        if (!o.img.active || !o.alive || !DAMAGEABLE.has(o.kind)) continue;
+        if (!o.img.active || !o.alive || !DAMAGEABLE.has(o.kind) || (o.kind === 'phantom' && o.armed)) continue;
         const ol = o.img.x + o.hx, ot = o.img.y + o.hy;
         if (s.img.x > ol && s.img.x < ol + o.hw + 10 && s.img.y > ot - 10 && s.img.y < ot + o.hh + 10) {
-          this.damage(o, this.lo.weapon.damage, false, 45); // small knock-back: the kunai trades safety for damage
+          this.damage(o, this.lo.weapon.damage + this.dmgBonus, false, 45); // small knock-back: the kunai trades safety for damage
           this.slashFx.explode(6, s.img.x, s.img.y);
           s.alive = false; s.img.setVisible(false);
           break;

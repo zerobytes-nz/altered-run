@@ -42,6 +42,17 @@ export const STORY: Record<string, StoryCard> = {
       'The Shadow King is waiting. End the Altering for good.',
     ],
   },
+  ending: {
+    id: 'ending', title: 'THE STORM CLEARS', color: 0x80ffdb,
+    lines: [
+      'The Shadow King falls, and the strange light goes out with him.',
+      'One by one the Altered rivals shrink back into the heroes they were.',
+      'The four worlds are quiet again, for now.',
+      'Your AWIs keep their true shapes. Keep running: Endless and the',
+      'Daily run are waiting, and there are stars still to find.',
+      'THANK YOU FOR PLAYING ALTERED RUN!',
+    ],
+  },
 };
 
 /** The card that opens a world, if it has one. */
